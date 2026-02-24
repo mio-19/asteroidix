@@ -1,2 +1,121 @@
 # asteroidix
-asteroid nix
+
+`asteroidix` is a Robotnix-style Nix module system for building AsteroidOS images.
+
+## What this does
+
+- Pins AsteroidOS layers (`oe-core`, `bitbake`, `meta-asteroid`, etc.) through Nix fetchers.
+- Evaluates configuration through `lib.evalModules`.
+- Runs `oe-init-build-env` and `bitbake asteroid-image` in an FHS environment.
+- Exposes build outputs as `config.build.image` and `config.build.imagesDir`.
+- Uses offline-by-default BitBake policy (`BB_NO_NETWORK = "1"` in default `local.conf`).
+
+## Quick start
+
+Build for `dory`:
+
+```bash
+nix build .#image
+```
+
+Use as a library (similar to `robotnix.lib.robotnixSystem`):
+
+```nix
+{
+  inputs.asteroidix.url = "path:/path/to/asteroidix";
+
+  outputs = { self, asteroidix, ... }: {
+    asteroid = asteroidix.lib.asteroidixSystem {
+      system = "x86_64-linux";
+      configuration = {
+        machine = "dory";
+      };
+    };
+  };
+}
+```
+
+Then build with:
+
+```bash
+nix build .#asteroid.image
+```
+
+## Offline two-phase build
+
+BitBake fetches must be done in a fixed-output derivation; normal build derivations run offline.
+
+Phase 1: prefetch all recipe sources (network allowed because fixed-output):
+
+```bash
+nix build --impure --expr '
+let
+  flake = builtins.getFlake "path:.";
+  system = builtins.currentSystem;
+  cfg = flake.lib.asteroidixSystem {
+    inherit system;
+    configuration = {
+      machine = "hoki";
+      prefetch.enable = true;
+      prefetch.hash = (import flake.inputs.nixpkgs { inherit system; }).lib.fakeHash;
+    };
+  };
+in cfg.prefetchedSources'
+```
+
+Use the hash from the mismatch error as `prefetch.hash`.
+
+Phase 2: build image offline using the prefetched mirror:
+
+```bash
+nix build --impure --expr '
+let
+  flake = builtins.getFlake "path:.";
+  system = builtins.currentSystem;
+  cfg = flake.lib.asteroidixSystem {
+    inherit system;
+    configuration = {
+      machine = "hoki";
+      prefetch.enable = true;
+      prefetch.hash = "sha256-REPLACE_WITH_REAL_HASH";
+    };
+  };
+in cfg.image'
+```
+
+## Source directories
+
+`asteroidix` provides a Robotnix-like `source.dirs.*` interface.
+
+Add an extra source directory:
+
+```nix
+{
+  source.dirs."foo/bar".src = pkgs.fetchgit {
+    url = "https://example.com/repo/foobar.git";
+    rev = "f506faf86b8f01f9c09aae877e00ad0a2b4bc511";
+    hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  };
+}
+```
+
+Patch an existing directory:
+
+```nix
+{
+  source.dirs."meta-asteroid".patches = [ ./example.patch ];
+  source.dirs."meta-asteroid".postPatch = ''
+    sed -i 's/hello/there/' example.txt
+  '';
+}
+```
+
+Supported per-directory knobs include:
+- `source.dirs.<name>.enable`
+- `source.dirs.<name>.relpath`
+- `source.dirs.<name>.src`
+- `source.dirs.<name>.patches`
+- `source.dirs.<name>.postPatch`
+- `source.dirs.<name>.nativeBuildInputs`
+- `source.dirs.<name>.copyfiles`
+- `source.dirs.<name>.linkfiles`
