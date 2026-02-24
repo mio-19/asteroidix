@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: asteroidix <devnull@example.com>
+Date: Tue, 24 Feb 2026 00:00:00 +0000
+Subject: [PATCH] ext/Errno: fallback to cpp -dM when header scan is empty
+
+In constrained build environments, Errno_pm.PL can fail to collect header
+paths from preprocessor line markers and then abort with:
+"No error definitions found".
+
+Add a native-safe fallback that queries errno macros via `cpp -dM`.
+Upstream-Status: Inappropriate [nix sandbox specific]
+---
+ ext/Errno/Errno_pm.PL | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/ext/Errno/Errno_pm.PL b/ext/Errno/Errno_pm.PL
+index 4bdbef1..9e07a11 100644
+--- a/ext/Errno/Errno_pm.PL
++++ b/ext/Errno/Errno_pm.PL
+@@ -205,6 +205,24 @@ sub write_errno_pm {
+ 
+     # quick sanity check
+ 
++    if (!keys %err) {
++	open(CPPI, '>', 'errno.c') or
++	    die "Cannot open errno.c";
++	print CPPI "#include <errno.h>\n";
++	close(CPPI);
++
++	my $cpp = default_cpp();
++	open(CPPO, "$cpp -dM < errno.c |") or
++	    die "Cannot exec $cpp -dM";
++	while (<CPPO>) {
++	    if (/^#define\s+(E[A-Z0-9_]+)\b/) {
++		$err{$1} = '';
++	    }
++	}
++	close(CPPO);
++	unlink 'errno.c';
++    }
++
+     die "No error definitions found" unless keys %err;
+ 
+     # create the CPP input
+-- 
+2.49.0

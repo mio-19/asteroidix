@@ -63,6 +63,7 @@ in
     ];
 
     layerConfs = [
+      "meta-asteroidix-local"
       "meta-qt5"
       "oe-core/meta"
       "meta-asteroid"
@@ -104,6 +105,7 @@ in
       rsync
       shared-mime-info
       socat
+      shadow
       texinfo
       util-linux
       wget
@@ -112,16 +114,23 @@ in
       zstd
     ];
 
-    source.dirs = lib.mapAttrs (_: layer: {
-      relpath = layer.relpath;
-      src = pkgs.fetchFromGitHub {
-        inherit (layer)
-          owner
-          repo
-          rev
-          hash
-          ;
-      };
-    }) layers;
+    source.dirs =
+      {
+        meta-asteroidix-local = {
+          relpath = "src/meta-asteroidix-local";
+          src = ../meta-asteroidix-local;
+        };
+      }
+      // lib.mapAttrs (_: layer: {
+        relpath = layer.relpath;
+        src = pkgs.fetchFromGitHub {
+          inherit (layer)
+            owner
+            repo
+            rev
+            hash
+            ;
+        };
+      }) layers;
   };
 }
