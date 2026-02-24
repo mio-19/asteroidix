@@ -95,6 +95,7 @@ in
       gnugrep
       git
       hostname
+      imagemagick
       libxcrypt
       lz4
       ncurses

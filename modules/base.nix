@@ -50,6 +50,7 @@ in
         CONNECTIVITY_CHECK_URIS = ""
         ASSUME_PROVIDED:remove = "virtual/crypt-native"
         CFLAGS:append:pn-libxcrypt-native = " -Wno-error"
+        HOSTTOOLS:append = " convert"
         PREMIRRORS:append = " \
         https://ftp.gnu.org/gnu/(.*) https://mirrors.kernel.org/gnu/\\1 \
         http://ftp.gnu.org/gnu/(.*) https://mirrors.kernel.org/gnu/\\1 \
