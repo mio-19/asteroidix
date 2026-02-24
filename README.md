@@ -65,6 +65,18 @@ Update the prefetch lock for a specific machine:
 nix run .#update-prefetch-lock -- hoki
 ```
 
+Update pinned layer revisions/hashes:
+
+```bash
+nix run .#update-layers
+```
+
+Update only specific layers:
+
+```bash
+nix run .#update-layers -- meta-asteroid meta-smartwatch
+```
+
 ## Offline two-phase build
 
 Normal image builds run offline. Keep/update the per-device prefetch lock, then build:

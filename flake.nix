@@ -47,11 +47,29 @@
           updatePrefetchLock = pkgs.writeShellScriptBin "update-prefetch-lock" ''
             exec env REPO_ROOT="$PWD" ${./scripts/update-prefetch-lock.sh} "$@"
           '';
+          updateLayers = pkgs.writeShellApplication {
+            name = "update-layers";
+            runtimeInputs = with pkgs; [
+              coreutils
+              git
+              gnused
+              gawk
+              jq
+              nix-prefetch-github
+            ];
+            text = ''
+              exec env REPO_ROOT="$PWD" ${./scripts/update-layers.sh} "$@"
+            '';
+          };
         in
         {
           update-prefetch-lock = {
             type = "app";
             program = "${updatePrefetchLock}/bin/update-prefetch-lock";
+          };
+          update-layers = {
+            type = "app";
+            program = "${updateLayers}/bin/update-layers";
           };
         }
       );
