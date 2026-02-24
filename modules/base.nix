@@ -42,6 +42,7 @@ in
         BB_SRCREV_POLICY = "cache"
         CONNECTIVITY_CHECK_URIS = ""
         ASSUME_PROVIDED:remove = "virtual/crypt-native"
+        CFLAGS:append:pn-libxcrypt-native = " -Wno-error"
         PREMIRRORS:append = " \
         https://ftp.gnu.org/gnu/(.*) https://mirrors.kernel.org/gnu/\\1 \
         http://ftp.gnu.org/gnu/(.*) https://mirrors.kernel.org/gnu/\\1 \

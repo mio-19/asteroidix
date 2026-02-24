@@ -45,6 +45,42 @@ nix build .#asteroid.image
 
 BitBake fetches must be done in a fixed-output derivation; normal build derivations run offline.
 
+Self-test for `hoki` (copy/paste):
+
+```bash
+LOG="$(mktemp)"
+nix build --print-build-logs --show-trace --impure --expr '
+let
+  flake = builtins.getFlake (toString ./.);
+  system = builtins.currentSystem;
+  cfg = flake.lib.asteroidixSystem {
+    inherit system;
+    configuration = {
+      machine = "hoki";
+      prefetch.enable = true;
+      prefetch.hash = (import flake.inputs.nixpkgs { inherit system; }).lib.fakeHash;
+    };
+  };
+in cfg.prefetchedSources' 2>&1 | tee "$LOG" || true
+
+HASH="$(sed -n 's/.*got:[[:space:]]*//p' "$LOG" | tail -n1)"
+echo "Detected prefetch hash: $HASH"
+
+nix build --print-build-logs --show-trace --impure --expr "
+let
+  flake = builtins.getFlake (toString ./.);
+  system = builtins.currentSystem;
+  cfg = flake.lib.asteroidixSystem {
+    inherit system;
+    configuration = {
+      machine = \"hoki\";
+      prefetch.enable = true;
+      prefetch.hash = \"${HASH}\";
+    };
+  };
+in cfg.image"
+```
+
 Phase 1: prefetch all recipe sources (network allowed because fixed-output):
 
 ```bash
