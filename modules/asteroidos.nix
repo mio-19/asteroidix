@@ -94,6 +94,7 @@ in
       gnugrep
       git
       hostname
+      libxcrypt
       lz4
       ncurses
       patch

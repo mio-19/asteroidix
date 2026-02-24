@@ -41,6 +41,7 @@ in
         BB_NO_NETWORK = "1"
         BB_SRCREV_POLICY = "cache"
         CONNECTIVITY_CHECK_URIS = ""
+        ASSUME_PROVIDED:remove = "virtual/crypt-native"
         PREMIRRORS:append = " \
         https://ftp.gnu.org/gnu/(.*) https://mirrors.kernel.org/gnu/\\1 \
         http://ftp.gnu.org/gnu/(.*) https://mirrors.kernel.org/gnu/\\1 \
