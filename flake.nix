@@ -40,6 +40,22 @@
         description = "A basic asteroidix configuration flake";
       };
 
+      apps = forAllSystems (
+        system:
+        let
+          pkgs = import nixpkgs { inherit system; };
+          updatePrefetchLock = pkgs.writeShellScriptBin "update-prefetch-lock" ''
+            exec env REPO_ROOT="$PWD" ${./scripts/update-prefetch-lock.sh} "$@"
+          '';
+        in
+        {
+          update-prefetch-lock = {
+            type = "app";
+            program = "${updatePrefetchLock}/bin/update-prefetch-lock";
+          };
+        }
+      );
+
       packages = forAllSystems (
         system:
         let

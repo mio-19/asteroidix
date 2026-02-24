@@ -1,10 +1,17 @@
-{ lib, ... }:
+{
+  config,
+  lib,
+  ...
+}:
 
 let
   inherit (lib)
+    mkDefault
+    mkIf
     mkOption
     types
     ;
+  prefetchLocks = builtins.fromJSON (builtins.readFile ../prefetch-lock.json);
 in
 {
   options = {
@@ -76,5 +83,12 @@ in
       default = { };
       internal = true;
     };
+  };
+
+  config = mkIf (config.machine != null) {
+    prefetch.hash = mkDefault (
+      if builtins.hasAttr config.machine prefetchLocks then prefetchLocks.${config.machine} else null
+    );
+    prefetch.enable = mkDefault (config.prefetch.hash != null);
   };
 }
