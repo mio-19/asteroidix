@@ -8,30 +8,52 @@
   outputs =
     { self, nixpkgs }:
     let
-      forAllSystems =
-        f:
-        nixpkgs.lib.genAttrs [
-          "x86_64-linux"
-          "aarch64-linux"
-        ] (system: f system);
+      lib = nixpkgs.lib;
+
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
+
+      forAllSystems = f: lib.genAttrs systems (system: f system);
+
+      defaultMachine = "dory";
+      machineConfigurations = import ./configs.nix { inherit lib; };
+
+      mkAsteroidixConfigurations =
+        system:
+        lib.mapAttrs (
+          _: configuration:
+          self.lib.asteroidixSystem {
+            inherit system configuration;
+          }
+        ) machineConfigurations;
     in
     {
       lib = import ./lib { inherit nixpkgs; };
 
+      asteroidixConfigurations = mkAsteroidixConfigurations "x86_64-linux";
+      asteroidixConfigurationsBySystem = forAllSystems mkAsteroidixConfigurations;
+
+      templates.default = {
+        path = ./template;
+        description = "A basic asteroidix configuration flake";
+      };
+
       packages = forAllSystems (
         system:
         let
-          pkgs = import nixpkgs { inherit system; };
-          systemConfig = self.lib.asteroidixSystem {
-            inherit system;
-            configuration = {
-              machine = "dory";
-            };
-          };
+          configurations = mkAsteroidixConfigurations system;
+          machineImages = lib.mapAttrs' (
+            machine: asteroid: lib.nameValuePair "${machine}-img" asteroid.img
+          ) configurations;
+          defaultConfiguration = configurations.${defaultMachine};
         in
-        {
-          default = systemConfig.image;
-          image = systemConfig.image;
+        machineImages
+        // {
+          default = defaultConfiguration.img;
+          img = defaultConfiguration.img;
+          image = defaultConfiguration.image;
         }
       );
 

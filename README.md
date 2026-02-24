@@ -7,30 +7,40 @@
 - Pins AsteroidOS layers (`oe-core`, `bitbake`, `meta-asteroid`, etc.) through Nix fetchers.
 - Evaluates configuration through `lib.evalModules`.
 - Runs `oe-init-build-env` and `bitbake asteroid-image` in an FHS environment.
-- Exposes build outputs as `config.build.image` and `config.build.imagesDir`.
+- Exposes build outputs as `config.build.image`, `config.build.img`, and `config.build.imagesDir`.
 - Uses offline-by-default BitBake policy (`BB_NO_NETWORK = "1"` in default `local.conf`).
 
 ## Quick start
 
-Build for `dory`:
+Build the default `dory` image directly from GitHub:
 
 ```bash
-nix build .#image
+nix build github:mio-19/asteroidix#img
 ```
 
-Use as a library (similar to `robotnix.lib.robotnixSystem`):
+Build a specific machine in one command:
+
+```bash
+nix build github:mio-19/asteroidix#hoki-img
+```
+
+Available machine outputs are generated from [`configs.nix`](./configs.nix).
+
+Use as a library (similar to `robotnix.lib.robotnixSystem`) in your own flake:
 
 ```nix
 {
-  inputs.asteroidix.url = "path:/path/to/asteroidix";
+  inputs.asteroidix.url = "github:mio-19/asteroidix";
 
   outputs = { self, asteroidix, ... }: {
-    asteroid = asteroidix.lib.asteroidixSystem {
+    asteroidixConfigurations.myWatch = asteroidix.lib.asteroidixSystem {
       system = "x86_64-linux";
       configuration = {
         machine = "dory";
       };
     };
+
+    packages.x86_64-linux.default = self.asteroidixConfigurations.myWatch.img;
   };
 }
 ```
@@ -38,7 +48,13 @@ Use as a library (similar to `robotnix.lib.robotnixSystem`):
 Then build with:
 
 ```bash
-nix build .#asteroid.image
+nix build .#asteroidixConfigurations.myWatch.img
+```
+
+Or bootstrap that flake from the built-in template:
+
+```bash
+nix flake init -t github:mio-19/asteroidix
 ```
 
 ## Offline two-phase build
@@ -78,7 +94,7 @@ let
       prefetch.hash = \"${HASH}\";
     };
   };
-in cfg.image"
+in cfg.img"
 ```
 
 Phase 1: prefetch all recipe sources (network allowed because fixed-output):
@@ -116,7 +132,7 @@ let
       prefetch.hash = "sha256-REPLACE_WITH_REAL_HASH";
     };
   };
-in cfg.image'
+in cfg.img'
 ```
 
 ## Source directories

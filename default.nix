@@ -58,4 +58,7 @@ in
     prefetchedSources
     debugBuildScript
     ;
+
+  # robotnix-compatible alias
+  img = config.build.image;
 }
