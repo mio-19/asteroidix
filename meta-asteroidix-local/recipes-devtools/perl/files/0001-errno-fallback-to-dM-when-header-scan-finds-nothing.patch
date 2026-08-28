@@ -1,7 +1,7 @@
 From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: asteroidix <devnull@example.com>
 Date: Tue, 24 Feb 2026 00:00:00 +0000
-Subject: [PATCH] ext/Errno: fallback to cpp -dM when header scan is empty
+Subject: [PATCH] ext/Errno: fallback to dM when header scan finds nothing
 
 In constrained build environments, Errno_pm.PL can fail to collect header
 paths from preprocessor line markers and then abort with:
@@ -27,18 +27,18 @@ index 4bdbef1..9e07a11 100644
 +	print CPPI "#include <errno.h>\n";
 +	close(CPPI);
 +
-+	my $cpp = default_cpp();
-+	open(CPPO, "$cpp -dM < errno.c |") or
-+	    die "Cannot exec $cpp -dM";
++	my $cc = $Config{cc};
++	my $cppflags = $Config{cppflags};
++	open(CPPO, "$cc -E -dM $cppflags errno.c |") or
++	    die "Cannot exec $cc -E -dM $cppflags errno.c";
 +	while (<CPPO>) {
 +	    if (/^#define\s+(E[A-Z0-9_]+)\b/) {
-+		$err{$1} = '';
++		$err{$1} = 1;
 +	    }
 +	}
 +	close(CPPO);
 +	unlink 'errno.c';
 +    }
-+
      die "No error definitions found" unless keys %err;
  
      # create the CPP input

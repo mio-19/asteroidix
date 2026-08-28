@@ -51,9 +51,10 @@ in
         ASSUME_PROVIDED:remove = "virtual/crypt-native"
         CFLAGS:append:pn-libxcrypt-native = " -Wno-error"
         HOSTTOOLS:append = " convert"
+        # Prefer basename mirrors (no capture backrefs — those break URL construction).
         PREMIRRORS:append = " \
-        https://ftp.gnu.org/gnu/(.*) https://mirrors.kernel.org/gnu/\\1 \
-        http://ftp.gnu.org/gnu/(.*) https://mirrors.kernel.org/gnu/\\1 \
+        https://ftp.gnu.org/gnu/.* https://mirrors.kernel.org/gnu/ \
+        http://ftp.gnu.org/gnu/.* https://mirrors.kernel.org/gnu/ \
         "
       '';
       description = "Contents written to build/conf/local.conf.";

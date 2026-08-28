@@ -65,13 +65,19 @@ let
 
       ${lib.optionalString enablePrefetchMirror ''
         mkdir -p ${config.buildDir}/downloads
-        mkdir -p ${config.buildDir}/cache
         cp -a ${config.build.prefetchedSources}/downloads/. ${config.buildDir}/downloads/
-        if [ -d ${config.build.prefetchedSources}/cache ]; then
-          cp -a ${config.build.prefetchedSources}/cache/. ${config.buildDir}/cache/
-        fi
         chmod -R u+w ${config.buildDir}/downloads || true
-        chmod -R u+w ${config.buildDir}/cache || true
+
+        if [ -f ${config.buildDir}/downloads/autorevs.json ]; then
+          mkdir -p ${config.buildDir}/cache
+          ${pkgs.python3}/bin/python3 -c '
+import pickle, json
+with open("${config.buildDir}/downloads/autorevs.json", "r") as f:
+    d = json.load(f)
+with open("${config.buildDir}/cache/local_srcrevisions.dat", "wb") as out:
+    pickle.dump([ [d], 1 ], out, -1)
+'
+        fi
       ''}
 
       asteroidix-build <<'EOS'
@@ -120,31 +126,63 @@ in
               enablePrefetchMirror = false;
               localConfExtra = ''
                 BB_NO_NETWORK = "0"
+                BB_GENERATE_MIRROR_TARBALLS = "1"
+                # Prefer kernel.org's Yocto source mirror (typically faster than
+                # downloads.yoctoproject.org). Upstream hosts rate-limit under fetchall.
                 PREMIRRORS:prepend = " \
-                https?://ftp.gnu.org/gnu/(.*) https://downloads.yoctoproject.org/mirror/sources/ \
-                https?://docbook.org/xml/(.*) https://downloads.yoctoproject.org/mirror/sources/ \
+                https?://zlib.net/(.*) https://mirrors.kernel.org/yocto-sources/ \
+                https?://ftp.gnu.org/gnu/(.*) https://mirrors.kernel.org/yocto-sources/ \
+                https?://docbook.org/xml/(.*) https://mirrors.kernel.org/yocto-sources/ \
+                https?://cdn.kernel.org/(.*) https://mirrors.kernel.org/yocto-sources/ \
+                https?://.*/kernel.org/(.*) https://mirrors.kernel.org/yocto-sources/ \
+                https?://cmake.org/(.*) https://mirrors.kernel.org/yocto-sources/ \
+                https?://busybox.net/(.*) https://mirrors.kernel.org/yocto-sources/ \
+                https?://download.savannah.gnu.org/(.*) https://mirrors.kernel.org/yocto-sources/ \
+                https?://download.savannah.nongnu.org/(.*) https://mirrors.kernel.org/yocto-sources/ \
+                git://sourceware.org/git/glibc.git https://mirrors.kernel.org/yocto-sources/ \
+                git://sourceware.org/git/binutils-gdb.git https://mirrors.kernel.org/yocto-sources/ \
+                git://salsa.debian.org/iso-codes-team/iso-codes.git https://mirrors.kernel.org/yocto-sources/ \
+                git://code.qt.io/qt/.* https://mirrors.kernel.org/yocto-sources/ \
+                git://android.googlesource.com/.* https://mirrors.kernel.org/yocto-sources/ \
+                git://github.com/.* https://mirrors.kernel.org/yocto-sources/ \
+                git://.*/.* https://mirrors.kernel.org/yocto-sources/ \
                 "
                 BB_FETCH_PREMIRRORONLY = "0"
-                FETCHCMD_wget = "/usr/bin/env wget --tries=1 --timeout=20 --passive-ftp --no-check-certificate"
+                # Default bitbake wget is --tries=2 --timeout=100; keep retries healthy
+                # and only special-case crates.io User-Agent (returns 403 otherwise).
+                FETCHCMD_wget = "${pkgs.writeShellScript "wget-wrapper.sh" ''
+                  if [[ "$*" == *"crates.io"* ]]; then
+                    exec wget --tries=5 --timeout=100 --passive-ftp --no-check-certificate -U "Bitbake/2.0" "$@"
+                  else
+                    exec wget --tries=5 --timeout=100 --passive-ftp --no-check-certificate "$@"
+                  fi
+                ''}"
               '';
               runBitbake = "bitbake --runall=fetch ${config.imageName}";
             };
 
             installPhase = ''
               set -euo pipefail
-              mkdir -p "$out/downloads" "$out/cache"
+              mkdir -p "$out/downloads"
               cp -rL ${config.buildDir}/downloads/. "$out/downloads/"
-              if [ -d ${config.buildDir}/cache ]; then
-                cp -rL ${config.buildDir}/cache/. "$out/cache/"
+
+              if [ -f ${config.buildDir}/cache/local_srcrevisions.dat ]; then
+                ${pkgs.python3}/bin/python3 -c '
+import pickle, json
+with open("${config.buildDir}/cache/local_srcrevisions.dat", "rb") as f:
+    d = pickle.load(f)
+with open("autorevs.json", "w") as out:
+    json.dump(d[0][0], out, sort_keys=True, separators=(",", ":"))
+'
+                mv autorevs.json "$out/downloads/"
               fi
-              find "$out" -type l -lname '/nix/store/*' -delete || true
-              find "$out" -path '*/hooks/*' -type f -delete || true
-              find "$out" -path '*/objects/info/alternates' -type f -delete || true
-              find "$out" -type f -exec ${pkgs.removeReferencesTo}/bin/remove-references-to \
-                -t ${pkgs.bash} \
-                -t ${pkgs.bashInteractive} \
-                -t ${pkgs.perl} \
-                '{}' +
+
+              # Drop non-deterministic / redundant fetcher state. Offline builds use
+              # mirror tarballs + .done markers via own-mirrors; bare git2 clones and
+              # lock files vary between runs and break the fixed-output hash.
+              # Keep .done contents — BitBake stores checksum stamps there.
+              rm -rf "$out/downloads/git2" "$out/downloads/svn" "$out/downloads/cvs"
+              find "$out/downloads" -name '*.lock' -delete || true
             '';
           };
 

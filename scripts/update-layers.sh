@@ -69,7 +69,7 @@ prefetch_hash() {
   local owner="$1"
   local repo="$2"
   local rev="$3"
-  nix-prefetch-github "$owner" "$repo" --rev "$rev" --quiet | jq -r '.sha256 // .hash'
+  nix-prefetch-github "$owner" "$repo" --rev "$rev" --quiet | jq -r '.hash // .sha256'
 }
 
 if [ "$#" -gt 0 ]; then
