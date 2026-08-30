@@ -2,5 +2,8 @@
 result
 result-*
 
+# Local debug logs and one-off scripts
+scratch/
+
 # Ignore automatically generated direnv output
 .direnv
