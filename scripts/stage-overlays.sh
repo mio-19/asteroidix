@@ -7,6 +7,16 @@ git add \
   meta-asteroidix-local/recipes-nemomobile/lipstick/lipstick_git.bbappend \
   meta-asteroidix-local/recipes-asteroid/asteroid-launcher/asteroid-launcher_git.bbappend \
   meta-asteroidix-local/recipes-asteroid/qml-asteroid/qml-asteroid_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-calculator_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-alarmclock_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-calendar_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-compass_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-diamonds_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-flashlight_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-music_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-stopwatch_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-timer_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-weather_git.bbappend \
   meta-asteroidix-local/recipes-core/systemd/systemd-systemctl-native_257.6.bbappend \
   meta-asteroidix-local/recipes-core/systemd/systemd_%.bbappend \
   meta-asteroidix-local/recipes-core/systemd/systemd-systemctl-native/0001-errno-list-filter-out-EFSBADCRC-and-EFSCORRUPTED.patch \
