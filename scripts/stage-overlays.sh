@@ -10,6 +10,8 @@ git add \
   meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-calculator_git.bbappend \
   meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-alarmclock_git.bbappend \
   meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-calendar_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-settings_git.bbappend \
+  meta-asteroidix-local/recipes-asteroid/asteroid-btsyncd/asteroid-btsyncd_git.bbappend \
   meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-compass_git.bbappend \
   meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-diamonds_git.bbappend \
   meta-asteroidix-local/recipes-asteroid/asteroid-apps/asteroid-flashlight_git.bbappend \
