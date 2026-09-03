@@ -115,23 +115,22 @@ in
       zstd
     ];
 
-    source.dirs =
-      {
-        meta-asteroidix-local = {
-          relpath = "src/meta-asteroidix-local";
-          src = ../meta-asteroidix-local;
-        };
-      }
-      // lib.mapAttrs (_: layer: {
-        relpath = layer.relpath;
-        src = pkgs.fetchFromGitHub {
-          inherit (layer)
-            owner
-            repo
-            rev
-            hash
-            ;
-        };
-      }) layers;
+    source.dirs = {
+      meta-asteroidix-local = {
+        relpath = "src/meta-asteroidix-local";
+        src = ../meta-asteroidix-local;
+      };
+    }
+    // lib.mapAttrs (_: layer: {
+      relpath = layer.relpath;
+      src = pkgs.fetchFromGitHub {
+        inherit (layer)
+          owner
+          repo
+          rev
+          hash
+          ;
+      };
+    }) layers;
   };
 }

@@ -64,20 +64,20 @@ let
       ${mkBblayers}
 
       ${lib.optionalString enablePrefetchMirror ''
-        mkdir -p ${config.buildDir}/downloads
-        cp -a ${config.build.prefetchedSources}/downloads/. ${config.buildDir}/downloads/
-        chmod -R u+w ${config.buildDir}/downloads || true
+                mkdir -p ${config.buildDir}/downloads
+                cp -a ${config.build.prefetchedSources}/downloads/. ${config.buildDir}/downloads/
+                chmod -R u+w ${config.buildDir}/downloads || true
 
-        if [ -f ${config.buildDir}/downloads/autorevs.json ]; then
-          mkdir -p ${config.buildDir}/cache
-          ${pkgs.python3}/bin/python3 -c '
-import pickle, json
-with open("${config.buildDir}/downloads/autorevs.json", "r") as f:
-    d = json.load(f)
-with open("${config.buildDir}/cache/local_srcrevisions.dat", "wb") as out:
-    pickle.dump([ [d], 1 ], out, -1)
-'
-        fi
+                if [ -f ${config.buildDir}/downloads/autorevs.json ]; then
+                  mkdir -p ${config.buildDir}/cache
+                  ${pkgs.python3}/bin/python3 -c '
+        import pickle, json
+        with open("${config.buildDir}/downloads/autorevs.json", "r") as f:
+            d = json.load(f)
+        with open("${config.buildDir}/cache/local_srcrevisions.dat", "wb") as out:
+            pickle.dump([ [d], 1 ], out, -1)
+        '
+                fi
       ''}
 
       asteroidix-build <<'EOS'
@@ -162,27 +162,27 @@ in
             };
 
             installPhase = ''
-              set -euo pipefail
-              mkdir -p "$out/downloads"
-              cp -rL ${config.buildDir}/downloads/. "$out/downloads/"
+                            set -euo pipefail
+                            mkdir -p "$out/downloads"
+                            cp -rL ${config.buildDir}/downloads/. "$out/downloads/"
 
-              if [ -f ${config.buildDir}/cache/local_srcrevisions.dat ]; then
-                ${pkgs.python3}/bin/python3 -c '
-import pickle, json
-with open("${config.buildDir}/cache/local_srcrevisions.dat", "rb") as f:
-    d = pickle.load(f)
-with open("autorevs.json", "w") as out:
-    json.dump(d[0][0], out, sort_keys=True, separators=(",", ":"))
-'
-                mv autorevs.json "$out/downloads/"
-              fi
+                            if [ -f ${config.buildDir}/cache/local_srcrevisions.dat ]; then
+                              ${pkgs.python3}/bin/python3 -c '
+              import pickle, json
+              with open("${config.buildDir}/cache/local_srcrevisions.dat", "rb") as f:
+                  d = pickle.load(f)
+              with open("autorevs.json", "w") as out:
+                  json.dump(d[0][0], out, sort_keys=True, separators=(",", ":"))
+              '
+                              mv autorevs.json "$out/downloads/"
+                            fi
 
-              # Drop non-deterministic / redundant fetcher state. Offline builds use
-              # mirror tarballs + .done markers via own-mirrors; bare git2 clones and
-              # lock files vary between runs and break the fixed-output hash.
-              # Keep .done contents — BitBake stores checksum stamps there.
-              rm -rf "$out/downloads/git2" "$out/downloads/svn" "$out/downloads/cvs"
-              find "$out/downloads" -name '*.lock' -delete || true
+                            # Drop non-deterministic / redundant fetcher state. Offline builds use
+                            # mirror tarballs + .done markers via own-mirrors; bare git2 clones and
+                            # lock files vary between runs and break the fixed-output hash.
+                            # Keep .done contents — BitBake stores checksum stamps there.
+                            rm -rf "$out/downloads/git2" "$out/downloads/svn" "$out/downloads/cvs"
+                            find "$out/downloads" -name '*.lock' -delete || true
             '';
           };
 
