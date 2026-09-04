@@ -2,7 +2,7 @@
   description = "asteroidix: build AsteroidOS with a robotnix-like Nix module interface";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "https://nixos.org/channels/nixpkgs-unstable/nixexprs.tar.zst";
   };
 
   outputs =
