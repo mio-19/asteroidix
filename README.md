@@ -67,9 +67,10 @@ Update the prefetch lock for a specific machine:
 nix run .#update-prefetch-lock -- hoki
 ```
 
-Update pinned layer revisions/hashes:
+Update Nix dependencies and pinned layer revisions/hashes:
 
 ```bash
+nix flake update
 nix run .#update-layers
 ```
 
@@ -77,6 +78,19 @@ Update only specific layers:
 
 ```bash
 nix run .#update-layers -- meta-asteroid meta-smartwatch
+```
+
+The layer pins follow AsteroidOS's Whinlatter / BitBake 2.16 / Qt 6.11 stack.
+The AsteroidOS layer supplies the application source revisions; the local layer
+only carries Nix build-environment fixes. GitHub layers use archive fetchers;
+Qt's `meta-qt6` and Yocto's `meta-virtualization` use their upstream Git URLs.
+
+Changing layer revisions clears `prefetch-lock.json`, since its download hashes
+belong to the previous source revisions. Regenerate hashes for each device you build:
+
+```bash
+nix run path:.#update-prefetch-lock -- dory
+nix run path:.#update-prefetch-lock -- hoki
 ```
 
 ## Offline two-phase build

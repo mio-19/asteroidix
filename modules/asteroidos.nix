@@ -10,6 +10,7 @@ let
 
   supportedMachines = [
     "anthias"
+    "aurora"
     "bass"
     "beluga"
     "catfish"
@@ -21,6 +22,7 @@ let
     "inharmony"
     "koi"
     "lenok"
+    "medaka"
     "minnow"
     "mooneye"
     "narwhal"
@@ -64,7 +66,7 @@ in
 
     layerConfs = [
       "meta-asteroidix-local"
-      "meta-qt5"
+      "meta-qt6"
       "oe-core/meta"
       "meta-asteroid"
       "meta-asteroid-community"
@@ -75,6 +77,8 @@ in
       "meta-smartphone/meta-android"
       "meta-openembedded/meta-python"
       "meta-openembedded/meta-filesystems"
+      "meta-clang"
+      "meta-virtualization"
     ];
 
     envPackages = with pkgs; [
@@ -123,14 +127,21 @@ in
     }
     // lib.mapAttrs (_: layer: {
       relpath = layer.relpath;
-      src = pkgs.fetchFromGitHub {
-        inherit (layer)
-          owner
-          repo
-          rev
-          hash
-          ;
-      };
+      src =
+        if layer ? url then
+          pkgs.fetchgit {
+            inherit (layer) url rev hash;
+            fetchSubmodules = false;
+          }
+        else
+          pkgs.fetchFromGitHub {
+            inherit (layer)
+              owner
+              repo
+              rev
+              hash
+              ;
+          };
     }) layers;
   };
 }

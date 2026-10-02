@@ -2,45 +2,44 @@
   openembedded-core = {
     owner = "openembedded";
     repo = "openembedded-core";
-    ref = "walnascar";
-    rev = "ff1c54df4e7b15df2e2c9fced59d9ad3e92ed565";
-    hash = "sha256-E8KhwEPBSZeo7d+qqDbzXPv7YDCYv3qdlmvCld50iC8=";
+    ref = "whinlatter";
+    rev = "8751ec83421192fc0f8495fb95798f9eb7be77a0";
+    hash = "sha256-lFEfanDr+G0S6h3FL9793L3383qIvhzw7K5kSUKmAt0=";
     relpath = "src/oe-core";
   };
 
   bitbake = {
     owner = "openembedded";
     repo = "bitbake";
-    ref = "2.12";
-    rev = "ac097300921590ed6a814f2c3fa08a59f4ded92d";
-    hash = "sha256-bKivLxB+zoFq8U03BVC5WhtAz3zRkapICwR8aa/oEIw=";
+    ref = "2.16";
+    rev = "713fbbdb9ecc195ceb2216a2345e0d79dbee2135";
+    hash = "sha256-mqVQBtlfLQsg2LA240N8byn+vRZ+x0MVUIM1Jw2h3gg=";
     relpath = "src/oe-core/bitbake";
   };
 
   meta-openembedded = {
     owner = "openembedded";
     repo = "meta-openembedded";
-    ref = "walnascar";
-    rev = "07330a98cf93806b7a4e0170a541b94962ff3960";
-    hash = "sha256-0OXjpNmhGpYatPh3Euw5pKub/mSpxrq8EdhuHsP1JJw=";
+    ref = "whinlatter";
+    rev = "f52f32952cb9717949f8bc3d3ccf6c4c5a59521f";
+    hash = "sha256-Xd0hYx0kn3ifhxnyzcaPRlECHpR3uLQYzQjEKOalOf4=";
     relpath = "src/meta-openembedded";
   };
 
-  meta-qt5 = {
-    owner = "meta-qt5";
-    repo = "meta-qt5";
-    ref = "walnascar";
-    rev = "6c5de91169b721287dbf3e03828789562dd42a5f";
-    hash = "sha256-P2t4mojwbcPNAep9EnexXp9FKaRFfek40wHUVLDaK3k=";
-    relpath = "src/meta-qt5";
+  meta-qt6 = {
+    url = "https://code.qt.io/yocto/meta-qt6.git";
+    ref = "6.11";
+    rev = "62e6eb6003f2ad3a8952519e7a3dd7df700c26fc";
+    hash = "sha256-klDMjwIhTuZXosqCt9F1A5nxiUBTZl6w7PBv8LEkNM0=";
+    relpath = "src/meta-qt6";
   };
 
   meta-smartphone = {
     owner = "shr-distribution";
     repo = "meta-smartphone";
-    ref = "walnascar";
-    rev = "0d3d8e0e739e1f51ed7cd46106428e2e7da4ec76";
-    hash = "sha256-OFLbCarDao+5brnZyxNhJasRSoKYJxCIELk4Oq8wYxM=";
+    ref = "whinlatter";
+    rev = "0ef4e8979fbf3403ff8aef977874496dc312d913";
+    hash = "sha256-cGc3FzZrY+z7baJT0vUFHuul8DGaHeLqeNDLlCRECR8=";
     relpath = "src/meta-smartphone";
   };
 
@@ -48,17 +47,26 @@
     owner = "AsteroidOS";
     repo = "meta-asteroid";
     ref = "master";
-    rev = "71878ed09e43cef93a86512149199526ce5e4f3f";
-    hash = "sha256-0baPfC7YjNsp3Y+C7yjO6H/WxoR4bDv4KyrmT2/ezsU=";
+    rev = "e197f861f1441b56baab6af4a30f68abcf041d0b";
+    hash = "sha256-Hb99RYhiohXiRmnpGvaavwGB4PEguM/wbR17zw1Ir7s=";
     relpath = "src/meta-asteroid";
+  };
+
+  meta-clang = {
+    owner = "kraj";
+    repo = "meta-clang";
+    ref = "whinlatter";
+    rev = "cf20f8bd1366d41094c945597b95dd746e87b871";
+    hash = "sha256-rqSTRC/m8k3sEOv3z9RCEhEEp7ku06K3ITSAPixT3To=";
+    relpath = "src/meta-clang";
   };
 
   meta-asteroid-community = {
     owner = "AsteroidOS";
     repo = "meta-asteroid-community";
     ref = "master";
-    rev = "e21e9e1dcbf44dfea548bc8d5271593b30d88b2f";
-    hash = "sha256-PoAfNC0Fc5hr/YDAhkngIbfJq+XAULkm/vVFDHz83fM=";
+    rev = "f911d8900b2da887d1486416a8c16b8f8f15dd35";
+    hash = "sha256-aSapL4RQP7r7uUZ/YUR2nQj+nvtMk9xFSWs8kKy8e9A=";
     relpath = "src/meta-asteroid-community";
   };
 
@@ -66,8 +74,16 @@
     owner = "AsteroidOS";
     repo = "meta-smartwatch";
     ref = "master";
-    rev = "3f8b55b48d286f36044b06eb2801ab53d7c490a5";
-    hash = "sha256-9blQ1VWzNjYC+pPmUje4jflkCABR4Kmy6iHAQ03g7EA=";
+    rev = "750506ad678a2b142f044fd4667655b7f1c702ea";
+    hash = "sha256-7C1PMs7e6toXOUSJNZS3ygZB/Xer1GJS86ladaxEo2s=";
     relpath = "src/meta-smartwatch";
+  };
+
+  meta-virtualization = {
+    url = "https://git.yoctoproject.org/meta-virtualization";
+    ref = "whinlatter";
+    rev = "8f03a0cc8950ef5d5e4f11d9ae494946d1991e45";
+    hash = "sha256-sMTxige4I2gMnEBNVM4LS1eTBFIaa6029fbTU/4pH1k=";
+    relpath = "src/meta-virtualization";
   };
 }

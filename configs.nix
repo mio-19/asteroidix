@@ -3,6 +3,7 @@
 let
   supportedMachines = [
     "anthias"
+    "aurora"
     "bass"
     "beluga"
     "catfish"
@@ -14,6 +15,7 @@ let
     "inharmony"
     "koi"
     "lenok"
+    "medaka"
     "minnow"
     "mooneye"
     "narwhal"

@@ -56,6 +56,7 @@
               gawk
               jq
               nix-prefetch-github
+              nix-prefetch-git
             ];
             text = ''
               exec env REPO_ROOT="$PWD" ${./scripts/update-layers.sh} "$@"
@@ -91,6 +92,6 @@
         }
       );
 
-      formatter = forAllSystems (system: (import nixpkgs { inherit system; }).nixfmt-rfc-style);
+      formatter = forAllSystems (system: (import nixpkgs { inherit system; }).nixfmt);
     };
 }
