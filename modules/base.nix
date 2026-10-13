@@ -25,10 +25,10 @@ in
       default = "nightly-patched";
       description = ''
         Which image to build.
-        `nightly-*` follows AsteroidOS 2.2-nightly (Whinlatter / Qt 6).
+        `nightly-*` follows AsteroidOS 3.0-nightly (Whinlatter / Qt 6).
         `stable-*` follows AsteroidOS 2.1 (git branch 2.0, Walnascar / Qt 5).
         `*-official` stays on that branch's prepare-build.sh layers.
-        `*-patched` also applies mio's Nix sandbox fixes. Find phone is part of `nightly-patched` for hoki.
+        `*-patched` also applies mio's Nix sandbox fixes. Find phone is part of every `nightly-patched` machine.
       '';
     };
 

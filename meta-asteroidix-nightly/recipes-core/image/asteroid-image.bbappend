@@ -1,2 +1,2 @@
-# Find phone is part of mio's hoki image. Official builds omit this layer.
-IMAGE_INSTALL:append:hoki = " asteroid-findphone"
+# Every nightly-patched machine gets find phone. Official builds omit this layer.
+IMAGE_INSTALL:append = " asteroid-findphone"

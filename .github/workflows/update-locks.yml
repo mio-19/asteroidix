@@ -1,0 +1,73 @@
+name: Update locks
+
+on:
+  schedule:
+    # 16:00 UTC, which is 03:00 in Melbourne during daylight saving.
+    - cron: "0 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-locks
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update flake.lock and AsteroidOS layer pins
+        run: |
+          set -euo pipefail
+          cp prefetch-lock.json /tmp/prefetch-lock.before.json
+          nix flake update
+          nix run .#update-layers
+          nix fmt -- modules/layers/nightly.nix modules/layers/stable.nix
+
+      - name: Refresh prefetch locks cleared by a layer bump
+        run: |
+          set -euo pipefail
+          mapfile -t pairs < <(
+            jq -r --slurpfile after prefetch-lock.json '
+              . as $before
+              | $after[0] as $now
+              | $before
+              | to_entries[]
+              | .key as $variant
+              | .value
+              | to_entries[]
+              | select(($now[$variant] // {})[.key] == null)
+              | "\(.key) \($variant)"
+            ' /tmp/prefetch-lock.before.json
+          )
+          if [ "${#pairs[@]}" -eq 0 ]; then
+            echo "No prefetch entries were cleared."
+            exit 0
+          fi
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup || true
+          for pair in "${pairs[@]}"; do
+            read -r machine variant <<<"$pair"
+            echo "Refreshing prefetch lock for ${variant} ${machine}"
+            nix run .#update-prefetch-lock -- "$machine" "$variant"
+          done
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add flake.lock modules/layers/nightly.nix modules/layers/stable.nix prefetch-lock.json
+          if git diff --cached --quiet; then
+            echo "Locks are already current."
+            exit 0
+          fi
+          git commit -m "Update flake and AsteroidOS layer locks."
+          git push origin HEAD
