@@ -29,8 +29,8 @@
   meta-qt6 = {
     url = "https://code.qt.io/yocto/meta-qt6.git";
     ref = "6.11";
-    rev = "62e6eb6003f2ad3a8952519e7a3dd7df700c26fc";
-    hash = "sha256-klDMjwIhTuZXosqCt9F1A5nxiUBTZl6w7PBv8LEkNM0=";
+    rev = "ec98b3ab1c8deeab9412ef6cbfd55729dc567b01";
+    hash = "sha256-Kf8E6Vy6ytVxLLjr5DKEeiZXLKBK4MolDdJDKFoEpFg=";
     relpath = "src/meta-qt6";
   };
 
@@ -47,8 +47,8 @@
     owner = "AsteroidOS";
     repo = "meta-asteroid";
     ref = "master";
-    rev = "e197f861f1441b56baab6af4a30f68abcf041d0b";
-    hash = "sha256-Hb99RYhiohXiRmnpGvaavwGB4PEguM/wbR17zw1Ir7s=";
+    rev = "c5b82318a9d065f37d7f4ec90e272721288797b5";
+    hash = "sha256-LCNYJI/cTBnNz4iMGO1epbRzMt+9rD3ciaOmUGp03GA=";
     relpath = "src/meta-asteroid";
   };
 
@@ -74,8 +74,8 @@
     owner = "AsteroidOS";
     repo = "meta-smartwatch";
     ref = "master";
-    rev = "750506ad678a2b142f044fd4667655b7f1c702ea";
-    hash = "sha256-7C1PMs7e6toXOUSJNZS3ygZB/Xer1GJS86ladaxEo2s=";
+    rev = "3d396b9986be07b2b90aaf557a1a4251a331f7bf";
+    hash = "sha256-BNaBX120bgKNs9KEgiotHLvakrY3g5oFHO7doxtcOa0=";
     relpath = "src/meta-smartwatch";
   };
 
