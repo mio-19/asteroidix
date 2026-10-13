@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Categories=Applications;
+Exec=asteroid-findphone
+Icon=ios-phone-portrait
+X-Asteroid-Center-Color=#1f4b99
+X-Asteroid-Outer-Color=#061225

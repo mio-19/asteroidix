@@ -1,7 +1,7 @@
 { lib }:
 
 let
-  supportedMachines = [
+  nightlyMachines = [
     "anthias"
     "aurora"
     "bass"
@@ -36,7 +36,28 @@ let
     "triggerfish"
     "wren"
   ];
+
+  # AsteroidOS 2.1 prepare-build.sh (git branch 2.0). aurora and medaka arrived on nightly.
+  stableMachines = builtins.filter (
+    machine: machine != "aurora" && machine != "medaka"
+  ) nightlyMachines;
 in
-lib.genAttrs supportedMachines (machine: {
-  inherit machine;
-})
+{
+  machines = {
+    nightly = nightlyMachines;
+    stable = stableMachines;
+  };
+
+  configurations =
+    lib.mapAttrs
+      (
+        _: machines:
+        lib.genAttrs machines (machine: {
+          inherit machine;
+        })
+      )
+      {
+        nightly = nightlyMachines;
+        stable = stableMachines;
+      };
+}

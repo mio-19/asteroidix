@@ -1,0 +1,237 @@
+From: Mio <mio@mio19.uk>
+Subject: [PATCH] Add a Find Phone GATT service
+
+The watch asks the paired companion to ring. Characteristic
+0000a001-0000-0000-0000-00A57E401D05 notifies one byte: 1 starts,
+0 stops. Session bus org.asteroidos.findphone Ring/Stop drives it,
+and Stop is sent again after 30 seconds.
+
+Upstream-Status: Inappropriate [mio hoki patch]
+diff -Naur a/src/application.cpp b/src/application.cpp
+--- a/src/application.cpp	2026-10-13 19:07:24.907733162 +1100
++++ b/src/application.cpp	2026-10-13 19:07:25.538743424 +1100
+@@ -22,6 +22,7 @@
+ #include "batteryservice.h"
+ #include "screenshotservice.h"
+ #include "timeservice.h"
++#include "findphoneservice.h"
+ 
+ #include <QDBusMetaType>
+ 
+@@ -35,6 +36,7 @@
+     addService(new BatteryService(3, bus));
+     addService(new ScreenshotService(4, bus));
+     addService(new TimeService(5, bus));
++    addService(new FindPhoneService(6, bus));
+ 
+     qDBusRegisterMetaType<InterfaceList>();
+     qDBusRegisterMetaType<ManagedObjectList>();
+diff -Naur a/src/CMakeLists.txt b/src/CMakeLists.txt
+--- a/src/CMakeLists.txt	2026-10-13 19:07:25.146737048 +1100
++++ b/src/CMakeLists.txt	2026-10-13 19:07:25.538743424 +1100
+@@ -9,6 +9,7 @@
+ 	screenshotservice.cpp
+ 	settime.cpp
+ 	timeservice.cpp
++	findphoneservice.cpp
+ 	service.cpp
+ 	characteristic.cpp
+ 	descriptor.cpp
+@@ -29,6 +30,7 @@
+ 	screenshotservice.h
+ 	settime.h
+ 	timeservice.h
++	findphoneservice.h
+ 	service.h
+ 	characteristic.h
+ 	descriptor.h
+diff -Naur a/src/common.h b/src/common.h
+--- a/src/common.h	2026-10-13 19:07:25.377740805 +1100
++++ b/src/common.h	2026-10-13 19:07:25.538743424 +1100
+@@ -74,4 +74,11 @@
+ #define TIME_UUID         "00005071-0000-0000-0000-00A57E401D05"
+ #define TIME_SET_UUID     "00005001-0000-0000-0000-00A57E401D05"
+ 
++#define FINDPHONE_UUID      "0000a071-0000-0000-0000-00A57E401D05"
++#define FINDPHONE_RING_UUID "0000a001-0000-0000-0000-00A57E401D05"
++
++#define FINDPHONE_SERVICE_NAME "org.asteroidos.findphone"
++#define FINDPHONE_PATH         "/org/asteroidos/findphone"
++#define FINDPHONE_IFACE        "org.asteroidos.findphone"
++
+ #endif // COMMON_H
+diff -Naur a/src/findphoneservice.cpp b/src/findphoneservice.cpp
+--- a/src/findphoneservice.cpp	1970-01-01 10:00:00.000000000 +1000
++++ b/src/findphoneservice.cpp	2026-10-13 19:07:39.847976131 +1100
+@@ -0,0 +1,92 @@
++/*
++ * Copyright (C) 2026 Mio
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ */
++
++#include "findphoneservice.h"
++#include "common.h"
++
++#include <QDBusConnection>
++#include <QDebug>
++
++FindPhoneRingChrc::FindPhoneRingChrc(QDBusConnection bus, int index, Service *service)
++    : Characteristic(bus, index, FINDPHONE_RING_UUID, {"encrypt-authenticated-read", "encrypt-authenticated-notify"}, service)
++{
++    m_value.resize(1);
++    m_value[0] = 0;
++    connect(this, SIGNAL(valueChanged()), this, SLOT(emitPropertiesChanged()));
++}
++
++void FindPhoneRingChrc::request(bool ring)
++{
++    m_value[0] = ring ? 1 : 0;
++    emit valueChanged();
++}
++
++QByteArray FindPhoneRingChrc::ReadValue(QVariantMap)
++{
++    return m_value;
++}
++
++void FindPhoneRingChrc::emitPropertiesChanged()
++{
++    QDBusConnection connection = QDBusConnection::systemBus();
++    QDBusMessage message = QDBusMessage::createSignal(getPath().path(),
++                                                      "org.freedesktop.DBus.Properties",
++                                                      "PropertiesChanged");
++
++    QVariantMap changedProperties;
++    changedProperties[QStringLiteral("Value")] = QVariant(m_value);
++
++    QList<QVariant> arguments;
++    arguments << QVariant(GATT_CHRC_IFACE) << QVariant(changedProperties) << QVariant(QStringList());
++    message.setArguments(arguments);
++
++    if (!connection.send(message))
++        qDebug() << "Failed to send find-phone notification";
++}
++
++FindPhoneApi::FindPhoneApi(FindPhoneRingChrc *chrc, QObject *parent)
++    : QObject(parent), m_chrc(chrc), m_ringing(false)
++{
++    m_timer.setSingleShot(true);
++    m_timer.setInterval(30000);
++    connect(&m_timer, &QTimer::timeout, this, &FindPhoneApi::Stop);
++}
++
++void FindPhoneApi::Ring()
++{
++    m_ringing = true;
++    m_chrc->request(true);
++    m_timer.start();
++    emit ringingChanged();
++}
++
++void FindPhoneApi::Stop()
++{
++    m_timer.stop();
++    m_ringing = false;
++    m_chrc->request(false);
++    emit ringingChanged();
++}
++
++FindPhoneService::FindPhoneService(int index, QDBusConnection bus, QObject *parent)
++    : Service(bus, index, FINDPHONE_UUID, parent)
++{
++    m_ring = new FindPhoneRingChrc(bus, 0, this);
++    addCharacteristic(m_ring);
++    m_api = new FindPhoneApi(m_ring, this);
++
++    QDBusConnection session = QDBusConnection::sessionBus();
++    if (!session.registerService(QStringLiteral(FINDPHONE_SERVICE_NAME)))
++        qWarning() << "find phone service name:" << session.lastError().message();
++    if (!session.registerObject(QStringLiteral(FINDPHONE_PATH), m_api,
++                                QDBusConnection::ExportAllSlots
++                                    | QDBusConnection::ExportAllProperties
++                                    | QDBusConnection::ExportAllSignals))
++        qWarning() << "find phone object:" << session.lastError().message();
++}
+diff -Naur a/src/findphoneservice.h b/src/findphoneservice.h
+--- a/src/findphoneservice.h	1970-01-01 10:00:00.000000000 +1000
++++ b/src/findphoneservice.h	2026-10-13 19:07:57.407261693 +1100
+@@ -0,0 +1,75 @@
++/*
++ * Copyright (C) 2026 Mio
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef FINDPHONESERVICE_H
++#define FINDPHONESERVICE_H
++
++#include <QTimer>
++
++#include "service.h"
++
++class FindPhoneRingChrc : public Characteristic
++{
++    Q_OBJECT
++    Q_PROPERTY(QByteArray Value READ getValue NOTIFY valueChanged)
++
++public:
++    FindPhoneRingChrc(QDBusConnection bus, int index, Service *service);
++    void request(bool ring);
++
++signals:
++    void valueChanged();
++
++private slots:
++    void emitPropertiesChanged();
++
++private:
++    QByteArray getValue() { return m_value; }
++    QByteArray m_value;
++
++public slots:
++    QByteArray ReadValue(QVariantMap options) override;
++    void StartNotify() override {}
++    void StopNotify() override {}
++};
++
++class FindPhoneApi : public QObject
++{
++    Q_OBJECT
++    Q_CLASSINFO("D-Bus Interface", FINDPHONE_IFACE)
++    Q_PROPERTY(bool Ringing READ ringing NOTIFY ringingChanged)
++
++public:
++    explicit FindPhoneApi(FindPhoneRingChrc *chrc, QObject *parent = nullptr);
++    bool ringing() const { return m_ringing; }
++
++signals:
++    void ringingChanged();
++
++public slots:
++    void Ring();
++    void Stop();
++
++private:
++    FindPhoneRingChrc *m_chrc;
++    QTimer m_timer;
++    bool m_ringing;
++};
++
++class FindPhoneService : public Service
++{
++public:
++    explicit FindPhoneService(int index, QDBusConnection bus, QObject *parent = nullptr);
++
++private:
++    FindPhoneRingChrc *m_ring;
++    FindPhoneApi *m_api;
++};
++
++#endif

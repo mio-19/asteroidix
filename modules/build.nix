@@ -112,7 +112,7 @@ in
           null
         else
           pkgs.stdenvNoCC.mkDerivation {
-            name = "asteroidix-prefetch-${config.machine}";
+            name = "asteroidix-prefetch-${config.variant}-${config.machine}";
             srcs = [ ];
             dontUnpack = true;
             dontFixup = true;
@@ -187,7 +187,7 @@ in
           };
 
       image = pkgs.stdenvNoCC.mkDerivation {
-        name = "asteroidix-${config.machine}";
+        name = "asteroidix-${config.variant}-${config.machine}";
         srcs = [ ];
         dontUnpack = true;
         nativeBuildInputs = [ env ];

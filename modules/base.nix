@@ -15,6 +15,41 @@ let
 in
 {
   options = {
+    variant = mkOption {
+      type = types.enum [
+        "nightly-official"
+        "nightly-patched"
+        "stable-official"
+        "stable-patched"
+      ];
+      default = "nightly-patched";
+      description = ''
+        Which image to build.
+        `nightly-*` follows AsteroidOS 2.2-nightly (Whinlatter / Qt 6).
+        `stable-*` follows AsteroidOS 2.1 (git branch 2.0, Walnascar / Qt 5).
+        `*-official` stays on that branch's prepare-build.sh layers.
+        `*-patched` also applies mio's Nix sandbox fixes. Find phone is part of `nightly-patched` for hoki.
+      '';
+    };
+
+    channel = mkOption {
+      type = types.enum [
+        "nightly"
+        "stable"
+      ];
+      readOnly = true;
+      description = "AsteroidOS branch selected by `variant`.";
+    };
+
+    flavor = mkOption {
+      type = types.enum [
+        "official"
+        "patched"
+      ];
+      readOnly = true;
+      description = "Whether mio's patches are applied. Selected by `variant`.";
+    };
+
     machine = mkOption {
       type = types.nullOr types.str;
       default = null;
@@ -42,21 +77,7 @@ in
 
     localConf = mkOption {
       type = types.lines;
-      default = ''
-        DISTRO = "asteroid"
-        PACKAGE_CLASSES = "package_ipk"
-        BB_NO_NETWORK = "1"
-        BB_SRCREV_POLICY = "cache"
-        CONNECTIVITY_CHECK_URIS = ""
-        ASSUME_PROVIDED:remove = "virtual/crypt-native"
-        CFLAGS:append:pn-libxcrypt-native = " -Wno-error"
-        HOSTTOOLS:append = " convert"
-        # Prefer basename mirrors (no capture backrefs — those break URL construction).
-        PREMIRRORS:append = " \
-        https://ftp.gnu.org/gnu/.* https://mirrors.kernel.org/gnu/ \
-        http://ftp.gnu.org/gnu/.* https://mirrors.kernel.org/gnu/ \
-        "
-      '';
+      default = "";
       description = "Contents written to build/conf/local.conf.";
     };
 
@@ -87,10 +108,28 @@ in
     };
   };
 
-  config = mkIf (config.machine != null) {
-    prefetch.hash = mkDefault (
-      if builtins.hasAttr config.machine prefetchLocks then prefetchLocks.${config.machine} else null
+  config = {
+    channel = if lib.hasPrefix "stable-" config.variant then "stable" else "nightly";
+    flavor = if lib.hasSuffix "-patched" config.variant then "patched" else "official";
+
+    # Shared by every variant. Upstream local.conf is only DISTRO and
+    # PACKAGE_CLASSES; these three lines are the Nix sandbox (offline BitBake).
+    localConf = ''
+      DISTRO = "asteroid"
+      PACKAGE_CLASSES = "package_ipk"
+      BB_NO_NETWORK = "1"
+      BB_SRCREV_POLICY = "cache"
+      CONNECTIVITY_CHECK_URIS = ""
+    '';
+
+    prefetch = mkIf (config.machine != null) (
+      let
+        variantLocks = prefetchLocks.${config.variant} or { };
+      in
+      {
+        hash = mkDefault (variantLocks.${config.machine} or null);
+        enable = mkDefault (config.prefetch.hash != null);
+      }
     );
-    prefetch.enable = mkDefault (config.prefetch.hash != null);
   };
 }

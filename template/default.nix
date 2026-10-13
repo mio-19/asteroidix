@@ -1,3 +1,3 @@
 {
-  machine = "dory";
+  machine = "hoki";
 }

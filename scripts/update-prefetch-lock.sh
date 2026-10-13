@@ -1,16 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <machine>" >&2
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  echo "Usage: $0 <machine> [nightly-official|nightly-patched|stable-official|stable-patched]"
+  exit 0
+fi
+
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+  echo "Usage: $0 <machine> [nightly-official|nightly-patched|stable-official|stable-patched]" >&2
   exit 1
 fi
 
 machine="$1"
+variant="${2:-nightly-patched}"
 
-if [ "$machine" = "--help" ] || [ "$machine" = "-h" ]; then
-  echo "Usage: $0 <machine>"
-  exit 0
+case "$variant" in
+  official) variant="nightly-official" ;;
+  patched) variant="nightly-patched" ;;
+esac
+
+if [[ ! "$machine" =~ ^[a-z0-9-]+$ ]]; then
+  echo "Invalid machine: ${machine}" >&2
+  exit 1
+fi
+
+if [[ ! "$variant" =~ ^(nightly-official|nightly-patched|stable-official|stable-patched)$ ]]; then
+  echo "Invalid variant '${variant}'. Expected nightly-official, nightly-patched, stable-official, or stable-patched." >&2
+  exit 1
 fi
 
 if [ -n "${REPO_ROOT:-}" ]; then
@@ -27,7 +43,7 @@ log_file="$(mktemp)"
 
 trap 'rm -f "$log_file"' EXIT
 
-echo "Prefetching sources for machine: ${machine}"
+echo "Prefetching sources for ${variant} ${machine}"
 
 nix build --print-build-logs --show-trace --impure --expr "
 let
@@ -37,6 +53,7 @@ let
     inherit system;
     configuration = {
       machine = \"${machine}\";
+      variant = \"${variant}\";
       prefetch.enable = true;
       prefetch.hash = (import flake.inputs.nixpkgs { inherit system; }).lib.fakeHash;
     };
@@ -56,23 +73,41 @@ if [[ ! "${hash}" =~ ^sha256- ]]; then
 fi
 
 updated_json="$(
-  LOCK_FILE="$lock_file" MACHINE="$machine" HASH="$hash" \
+  LOCK_FILE="$lock_file" MACHINE="$machine" VARIANT="$variant" HASH="$hash" \
     nix eval --impure --raw --expr '
       let
         locksPath = builtins.getEnv "LOCK_FILE";
         locks = builtins.fromJSON (builtins.readFile locksPath);
         machine = builtins.getEnv "MACHINE";
+        variant = builtins.getEnv "VARIANT";
         hash = builtins.getEnv "HASH";
-        updated = locks // (builtins.listToAttrs [
-          {
-            name = machine;
-            value = hash;
-          }
-        ]);
+        base =
+          if locks ? "nightly-patched" || locks ? "stable-patched" then
+            locks
+          else if locks ? patched then
+            {
+              "nightly-official" = locks.official or { };
+              "nightly-patched" = locks.patched or { };
+              "stable-official" = { };
+              "stable-patched" = { };
+            }
+          else
+            {
+              "nightly-official" = { };
+              "nightly-patched" = locks;
+              "stable-official" = { };
+              "stable-patched" = { };
+            };
+        variantLocks = base.${variant} or { };
+        updated = base // {
+          ${variant} = variantLocks // {
+            ${machine} = hash;
+          };
+        };
       in
       builtins.toJSON updated
     '
 )"
 
 printf '%s\n' "$updated_json" > "$lock_file"
-echo "Updated ${lock_file}: ${machine} -> ${hash}"
+echo "Updated ${lock_file}: ${variant}.${machine} -> ${hash}"

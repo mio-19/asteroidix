@@ -17,23 +17,43 @@
 
       forAllSystems = f: lib.genAttrs systems (system: f system);
 
-      defaultMachine = "dory";
-      machineConfigurations = import ./configs.nix { inherit lib; };
+      defaultMachine = "hoki";
+      channelConfigs = import ./configs.nix { inherit lib; };
+
+      variants = [
+        "nightly-official"
+        "nightly-patched"
+        "stable-official"
+        "stable-patched"
+      ];
+
+      channelOf = variant: if lib.hasPrefix "stable-" variant then "stable" else "nightly";
 
       mkAsteroidixConfigurations =
-        system:
+        system: variant:
         lib.mapAttrs (
           _: configuration:
           self.lib.asteroidixSystem {
-            inherit system configuration;
+            inherit system;
+            configuration = configuration // {
+              inherit variant;
+            };
           }
-        ) machineConfigurations;
+        ) channelConfigs.configurations.${channelOf variant};
+
+      configurationsByVariant = forAllSystems (
+        system: lib.genAttrs variants (mkAsteroidixConfigurations system)
+      );
     in
     {
       lib = import ./lib { inherit nixpkgs; };
 
-      asteroidixConfigurations = mkAsteroidixConfigurations "x86_64-linux";
-      asteroidixConfigurationsBySystem = forAllSystems mkAsteroidixConfigurations;
+      # Default is mio's nightly hoki image.
+      asteroidixConfigurations = configurationsByVariant.x86_64-linux.nightly-patched;
+      asteroidixConfigurationsByVariant = configurationsByVariant;
+      asteroidixConfigurationsBySystem = forAllSystems (
+        system: configurationsByVariant.${system}.nightly-patched
+      );
 
       templates.default = {
         path = ./template;
@@ -78,17 +98,45 @@
       packages = forAllSystems (
         system:
         let
-          configurations = mkAsteroidixConfigurations system;
-          machineImages = lib.mapAttrs' (
+          byVariant = configurationsByVariant.${system};
+
+          variantImages = lib.concatMapAttrs (
+            variant: configurations:
+            lib.mapAttrs' (
+              machine: asteroid: lib.nameValuePair "${machine}-${variant}-img" asteroid.img
+            ) configurations
+          ) byVariant;
+
+          # Short names stay on nightly, the branch the previous two builds used.
+          nightlyAliases =
+            lib.concatMapAttrs
+              (
+                flavor: configurations:
+                lib.mapAttrs' (
+                  machine: asteroid: lib.nameValuePair "${machine}-${flavor}-img" asteroid.img
+                ) configurations
+              )
+              {
+                official = byVariant.nightly-official;
+                patched = byVariant.nightly-patched;
+              };
+
+          nightlyMachineAliases = lib.mapAttrs' (
             machine: asteroid: lib.nameValuePair "${machine}-img" asteroid.img
-          ) configurations;
-          defaultConfiguration = configurations.${defaultMachine};
+          ) byVariant.nightly-patched;
+
+          nightlyPatchedDefault = byVariant.nightly-patched.${defaultMachine};
+          nightlyOfficialDefault = byVariant.nightly-official.${defaultMachine};
         in
-        machineImages
+        variantImages
+        // nightlyAliases
+        // nightlyMachineAliases
         // {
-          default = defaultConfiguration.img;
-          img = defaultConfiguration.img;
-          image = defaultConfiguration.image;
+          default = nightlyPatchedDefault.img;
+          img = nightlyPatchedDefault.img;
+          image = nightlyPatchedDefault.image;
+          official-img = nightlyOfficialDefault.img;
+          patched-img = nightlyPatchedDefault.img;
         }
       );
 
