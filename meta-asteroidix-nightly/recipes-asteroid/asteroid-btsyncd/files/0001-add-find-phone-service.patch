@@ -63,7 +63,7 @@ diff -Naur a/src/common.h b/src/common.h
 diff -Naur a/src/findphoneservice.cpp b/src/findphoneservice.cpp
 --- a/src/findphoneservice.cpp	1970-01-01 10:00:00.000000000 +1000
 +++ b/src/findphoneservice.cpp	2026-10-13 19:07:39.847976131 +1100
-@@ -0,0 +1,92 @@
+@@ -0,0 +1,94 @@
 +/*
 + * Copyright (C) 2026 Mio
 + *
@@ -77,6 +77,8 @@ diff -Naur a/src/findphoneservice.cpp b/src/findphoneservice.cpp
 +#include "common.h"
 +
 +#include <QDBusConnection>
++#include <QDBusError>
++#include <QDBusMessage>
 +#include <QDebug>
 +
 +FindPhoneRingChrc::FindPhoneRingChrc(QDBusConnection bus, int index, Service *service)
