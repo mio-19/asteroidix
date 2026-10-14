@@ -2,7 +2,7 @@ From: Mio <mio@mio19.uk>
 Subject: [PATCH] Add a Find Phone GATT service
 
 The watch asks the paired companion to ring. Characteristic
-0000a001-0000-0000-0000-00A57E401D05 notifies one byte: 1 starts,
+0000f001-0000-0000-0000-00A57E401D05 notifies one byte: 1 starts,
 0 stops. Session bus org.asteroidos.findphone Ring/Stop drives it,
 and Stop is sent again after 30 seconds.
 
@@ -52,8 +52,8 @@ diff -Naur a/src/common.h b/src/common.h
  #define TIME_UUID         "00005071-0000-0000-0000-00A57E401D05"
  #define TIME_SET_UUID     "00005001-0000-0000-0000-00A57E401D05"
  
-+#define FINDPHONE_UUID      "0000a071-0000-0000-0000-00A57E401D05"
-+#define FINDPHONE_RING_UUID "0000a001-0000-0000-0000-00A57E401D05"
++#define FINDPHONE_UUID      "0000f071-0000-0000-0000-00A57E401D05"
++#define FINDPHONE_RING_UUID "0000f001-0000-0000-0000-00A57E401D05"
 +
 +#define FINDPHONE_SERVICE_NAME "org.asteroidos.findphone"
 +#define FINDPHONE_PATH         "/org/asteroidos/findphone"

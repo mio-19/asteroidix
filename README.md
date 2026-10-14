@@ -47,8 +47,8 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 
 Every nightly-patched image installs `asteroid-findphone` and patches `asteroid-btsyncd`. Stable patched images keep the sandbox fixes and stay on Qt 5, so Find phone is part of nightly only. The app's button calls session bus `org.asteroidos.findphone` `Ring` / `Stop`. The daemon notifies this GATT characteristic:
 
-- Service `0000a071-0000-0000-0000-00A57E401D05`
-- Ring characteristic `0000a001-0000-0000-0000-00A57E401D05` (encrypt-authenticated read and notify)
+- Service `0000f071-0000-0000-0000-00A57E401D05`
+- Ring characteristic `0000f001-0000-0000-0000-00A57E401D05` (encrypt-authenticated read and notify)
 - Value: one byte, `1` starts ringing and `0` stops
 
 The watch sends `0` again after 30 seconds. A companion rings the phone by subscribing to that characteristic and playing a ringtone while the value is `1`. Stock AsteroidOS Sync does not subscribe yet, so the phone stays quiet until the companion implements this.
