@@ -82,6 +82,29 @@
               exec env REPO_ROOT="$PWD" ${./scripts/update-layers.sh} "$@"
             '';
           };
+          pushApp = pkgs.writeShellApplication {
+            name = "push-app";
+            runtimeInputs = with pkgs; [
+              coreutils
+              findutils
+              android-tools
+              openssh
+            ];
+            text = ''
+              exec env REPO_ROOT="$PWD" ${./scripts/push-app.sh} "$@"
+            '';
+          };
+          setupWatchSsh = pkgs.writeShellApplication {
+            name = "setup-watch-ssh";
+            runtimeInputs = with pkgs; [
+              coreutils
+              android-tools
+              openssh
+            ];
+            text = ''
+              exec env REPO_ROOT="$PWD" ${./scripts/setup-watch-ssh.sh} "$@"
+            '';
+          };
         in
         {
           update-prefetch-lock = {
@@ -91,6 +114,14 @@
           update-layers = {
             type = "app";
             program = "${updateLayers}/bin/update-layers";
+          };
+          push-app = {
+            type = "app";
+            program = "${pushApp}/bin/push-app";
+          };
+          setup-watch-ssh = {
+            type = "app";
+            program = "${setupWatchSsh}/bin/setup-watch-ssh";
           };
         }
       );

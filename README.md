@@ -159,6 +159,37 @@ nix run path:.#update-prefetch-lock -- hoki nightly-patched
 nix build path:.#hoki-nightly-patched-img
 ```
 
+## Deploying applications to the watch
+
+As described in the [AsteroidOS OpenEmbedded documentation](https://wiki.asteroidos.org/index.php/OpenEmbedded), individual applications (like the `asteroid-findphone` app) can be pushed and installed directly onto a watch without reflashing the entire OS image.
+
+### 1. Set up root SSH access (AsteroidOS 2.2+)
+
+Starting with AsteroidOS 2.2, password authentication for root is disabled by default. Set up SSH public key access over ADB:
+
+```bash
+nix run .#setup-watch-ssh
+```
+
+This copies your SSH public key (`~/.ssh/id_ed25519.pub`) to the watch and configures `/home/root/.ssh/authorized_keys`.
+
+### 2. Push and install an application (.ipk)
+
+Build the image or packages, then deploy an application package with `push-app`:
+
+```bash
+# Push via ADB (connected over USB)
+nix run .#push-app -- --package asteroid-findphone --method adb
+
+# Push via SSH (Wi-Fi network, defaults to root@192.168.2.15)
+nix run .#push-app -- --package asteroid-findphone --target root@192.168.2.15
+
+# Push a specific .ipk package directly
+nix run .#push-app -- --file path/to/asteroid-findphone_1.0-r0_armv7vehf-neon.ipk
+```
+
+The script transfers the package to `/tmp` and executes `opkg --force-reinstall install`, making the app immediately available on the watch.
+
 ## Source directories
 
 `asteroidix` provides a Robotnix-like `source.dirs.*` interface.

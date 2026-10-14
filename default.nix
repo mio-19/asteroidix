@@ -55,6 +55,7 @@ in
   inherit (config.build)
     image
     imagesDir
+    packagesDir
     prefetchedSources
     debugBuildScript
     ;

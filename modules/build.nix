@@ -209,10 +209,17 @@ in
 
           mkdir -p "$out/images"
           cp --reflink=auto -r "$deployDir"/* "$out/images/"
+
+          ipkDir="${config.buildDir}/tmp/deploy/ipk"
+          if [ -d "$ipkDir" ]; then
+            mkdir -p "$out/packages"
+            cp --reflink=auto -r "$ipkDir"/* "$out/packages/"
+          fi
         '';
       };
 
       imagesDir = "${image}/images";
+      packagesDir = "${image}/packages";
 
       debugBuildScript = pkgs.writeShellScript "asteroidix-debug-build.sh" ''
         set -euo pipefail
