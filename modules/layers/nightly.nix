@@ -74,8 +74,8 @@
     owner = "AsteroidOS";
     repo = "meta-smartwatch";
     ref = "master";
-    rev = "3d396b9986be07b2b90aaf557a1a4251a331f7bf";
-    hash = "sha256-BNaBX120bgKNs9KEgiotHLvakrY3g5oFHO7doxtcOa0=";
+    rev = "085844a91fd23691f55d8ac08bc3e4c0a8429936";
+    hash = "sha256-V7XDaIUcg7noQvhS3YM9HgTnipaAqYyuw7bi0ZUFzVg=";
     relpath = "src/meta-smartwatch";
   };
 
