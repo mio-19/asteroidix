@@ -26,8 +26,10 @@ let
     "rinato"
     "rubyfish"
     "sawfish"
+    "seluna"
     "skipjack"
     "smelt"
+    "solios"
     "sparrow"
     "sparrow-mainline"
     "sprat"
@@ -38,9 +40,14 @@ let
     "wren"
   ];
 
-  # AsteroidOS 2.1 prepare-build.sh (git branch 2.0). aurora, eos, and medaka arrived on nightly.
+  # AsteroidOS 2.1 prepare-build.sh (git branch 2.0). aurora, eos, seluna, solios, and medaka arrived on nightly.
   stableMachines = builtins.filter (
-    machine: machine != "aurora" && machine != "eos" && machine != "medaka"
+    machine:
+    machine != "aurora"
+    && machine != "eos"
+    && machine != "seluna"
+    && machine != "solios"
+    && machine != "medaka"
   ) nightlyMachines;
 in
 {

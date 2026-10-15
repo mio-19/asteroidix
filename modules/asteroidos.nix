@@ -49,7 +49,17 @@ in
 
     layerConfs =
       lib.optionals
-        (config.variant == "nightly-patched" || (config.channel == "nightly" && config.machine == "eos"))
+        (
+          config.variant == "nightly-patched"
+          || (
+            config.channel == "nightly"
+            && builtins.elem config.machine [
+              "eos"
+              "seluna"
+              "solios"
+            ]
+          )
+        )
         [
           "meta-asteroidix-nightly"
         ]
@@ -136,7 +146,17 @@ in
       }
       //
         lib.optionalAttrs
-          (config.variant == "nightly-patched" || (config.channel == "nightly" && config.machine == "eos"))
+          (
+            config.variant == "nightly-patched"
+            || (
+              config.channel == "nightly"
+              && builtins.elem config.machine [
+                "eos"
+                "seluna"
+                "solios"
+              ]
+            )
+          )
           {
             meta-asteroidix-nightly = {
               relpath = "src/meta-asteroidix-nightly";
