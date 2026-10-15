@@ -55,6 +55,9 @@
         system: configurationsByVariant.${system}.nightly-patched
       );
 
+      asteroidixModules.default = ./modules;
+      asteroidixModule = ./modules;
+
       templates.default = {
         path = ./template;
         description = "A basic asteroidix configuration flake";
@@ -63,10 +66,19 @@
       apps = forAllSystems (
         system:
         let
-          pkgs = import nixpkgs { inherit system; };
-          updatePrefetchLock = pkgs.writeShellScriptBin "update-prefetch-lock" ''
-            exec env REPO_ROOT="$PWD" ${./scripts/update-prefetch-lock.sh} "$@"
-          '';
+          pkgs = nixpkgs.legacyPackages.${system};
+          updatePrefetchLock = pkgs.writeShellApplication {
+            name = "update-prefetch-lock";
+            runtimeInputs = with pkgs; [
+              coreutils
+              gnused
+              git
+              nix
+            ];
+            text = ''
+              exec env REPO_ROOT="$PWD" ${./scripts/update-prefetch-lock.sh} "$@"
+            '';
+          };
           updateLayers = pkgs.writeShellApplication {
             name = "update-layers";
             runtimeInputs = with pkgs; [
@@ -109,19 +121,19 @@
         {
           update-prefetch-lock = {
             type = "app";
-            program = "${updatePrefetchLock}/bin/update-prefetch-lock";
+            program = lib.getExe updatePrefetchLock;
           };
           update-layers = {
             type = "app";
-            program = "${updateLayers}/bin/update-layers";
+            program = lib.getExe updateLayers;
           };
           push-app = {
             type = "app";
-            program = "${pushApp}/bin/push-app";
+            program = lib.getExe pushApp;
           };
           setup-watch-ssh = {
             type = "app";
-            program = "${setupWatchSsh}/bin/setup-watch-ssh";
+            program = lib.getExe setupWatchSsh;
           };
         }
       );
@@ -171,6 +183,6 @@
         }
       );
 
-      formatter = forAllSystems (system: (import nixpkgs { inherit system; }).nixfmt);
+      formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt);
     };
 }

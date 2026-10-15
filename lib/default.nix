@@ -3,12 +3,18 @@
 {
   asteroidixSystem =
     {
-      configuration,
-      system,
-      pkgs ? import nixpkgs { inherit system; },
+      configuration ? null,
+      modules ? [ ],
+      system ? null,
+      pkgs ? if system != null then nixpkgs.legacyPackages.${system} else import nixpkgs { },
+      lib ? pkgs.lib,
     }:
     import ../default.nix {
-      inherit configuration pkgs;
-      lib = pkgs.lib;
+      inherit
+        configuration
+        modules
+        pkgs
+        lib
+        ;
     };
 }

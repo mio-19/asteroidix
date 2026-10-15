@@ -41,8 +41,7 @@ in
         message = "Set `machine` (for example `dory`) to select an AsteroidOS watch target.";
       }
       {
-        assertion =
-          config.machine == null || builtins.elem config.machine config.asteroidos.supportedMachines;
+        assertion = config.machine == null || lib.elem config.machine config.asteroidos.supportedMachines;
         message = "Unsupported machine `${toString config.machine}` on `${config.channel}`. See `options.asteroidos.supportedMachines`.";
       }
     ];
@@ -53,7 +52,7 @@ in
           config.variant == "nightly-patched"
           || (
             config.channel == "nightly"
-            && builtins.elem config.machine [
+            && lib.elem config.machine [
               "eos"
               "seluna"
               "solios"
@@ -150,7 +149,7 @@ in
             config.variant == "nightly-patched"
             || (
               config.channel == "nightly"
-              && builtins.elem config.machine [
+              && lib.elem config.machine [
                 "eos"
                 "seluna"
                 "solios"

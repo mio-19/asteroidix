@@ -11,7 +11,7 @@ let
     mkOption
     types
     ;
-  prefetchLocks = builtins.fromJSON (builtins.readFile ../prefetch-lock.json);
+  prefetchLocks = lib.importJSON ../prefetch-lock.json;
 in
 {
   options = {
@@ -102,7 +102,7 @@ in
     };
 
     build = mkOption {
-      type = types.attrs;
+      type = types.lazyAttrsOf types.raw;
       default = { };
       internal = true;
     };

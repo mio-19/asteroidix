@@ -60,11 +60,11 @@ let
           src = mkOption {
             type = types.path;
             description = "Source directory for this entry.";
-            default = pkgs.runCommand "empty-source-dir" { } "mkdir -p $out";
+            default = pkgs.emptyDirectory;
             apply =
               src:
               if config.patches != [ ] || config.postPatch != "" then
-                pkgs.runCommand "${builtins.replaceStrings [ "/" ] [ "=" ] config.relpath}-patched"
+                pkgs.runCommand "${lib.replaceStrings [ "/" ] [ "=" ] config.relpath}-patched"
                   {
                     inherit (config) nativeBuildInputs;
                   }
@@ -147,12 +147,12 @@ let
 
           src = mkIf (config.manifestSrc != null) (mkDefault config.manifestSrc);
 
-          unpackScript =
-            (lib.optionalString config.enable ''
+          unpackScript = lib.optionalString config.enable (
+            ''
               mkdir -p ${lib.escapeShellArg config.relpath}
               cp --reflink=auto --no-preserve=ownership --no-dereference --preserve=links -r ${config.src}/. ${lib.escapeShellArg config.relpath}/
               chmod -R u+w ${lib.escapeShellArg config.relpath}
-            '')
+            ''
             + (lib.concatMapStringsSep "\n" (c: ''
               mkdir -p "$(dirname ${lib.escapeShellArg c.dest})"
               cp --reflink=auto -f ${lib.escapeShellArg config.relpath}/${lib.escapeShellArg c.src} ${lib.escapeShellArg c.dest}
@@ -162,12 +162,13 @@ let
               if [ ! -e ${lib.escapeShellArg c.dest} ]; then
                 ln -s --relative ${lib.escapeShellArg config.relpath}/${lib.escapeShellArg c.src} ${lib.escapeShellArg c.dest}
               fi
-            '') config.linkfiles);
+            '') config.linkfiles)
+          );
         };
       }
     );
 
-  dirsByRelpath = builtins.sort (a: b: a.relpath < b.relpath) (lib.attrValues config.source.dirs);
+  dirsByRelpath = lib.sort (a: b: a.relpath < b.relpath) (lib.attrValues config.source.dirs);
 
   unpackScript = pkgs.writeShellScript "asteroidix-unpack.sh" (
     lib.concatStringsSep "\n" (map (d: d.unpackScript) dirsByRelpath)

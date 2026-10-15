@@ -113,7 +113,6 @@ in
         else
           pkgs.stdenvNoCC.mkDerivation {
             name = "asteroidix-prefetch-${config.variant}-${config.machine}";
-            srcs = [ ];
             dontUnpack = true;
             dontFixup = true;
             nativeBuildInputs = [ env ];
@@ -121,6 +120,11 @@ in
             outputHashMode = "recursive";
             outputHashAlgo = "sha256";
             outputHash = config.prefetch.hash;
+
+            meta = with lib; {
+              description = "Prefetched AsteroidOS sources for ${config.machine} (${config.variant})";
+              platforms = platforms.linux;
+            };
 
             buildPhase = mkBuildBody {
               enablePrefetchMirror = false;
@@ -188,9 +192,13 @@ in
 
       image = pkgs.stdenvNoCC.mkDerivation {
         name = "asteroidix-${config.variant}-${config.machine}";
-        srcs = [ ];
         dontUnpack = true;
         nativeBuildInputs = [ env ];
+
+        meta = with lib; {
+          description = "AsteroidOS ${config.variant} image for ${config.machine}";
+          platforms = platforms.linux;
+        };
 
         buildPhase = mkBuildBody {
           enablePrefetchMirror = config.prefetch.enable;

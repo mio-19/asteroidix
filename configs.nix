@@ -41,14 +41,13 @@ let
   ];
 
   # AsteroidOS 2.1 prepare-build.sh (git branch 2.0). aurora, eos, seluna, solios, and medaka arrived on nightly.
-  stableMachines = builtins.filter (
-    machine:
-    machine != "aurora"
-    && machine != "eos"
-    && machine != "seluna"
-    && machine != "solios"
-    && machine != "medaka"
-  ) nightlyMachines;
+  stableMachines = lib.subtractLists [
+    "aurora"
+    "eos"
+    "seluna"
+    "solios"
+    "medaka"
+  ] nightlyMachines;
 in
 {
   machines = {

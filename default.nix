@@ -1,5 +1,6 @@
 {
-  configuration,
+  configuration ? null,
+  modules ? [ ],
   pkgs ? import <nixpkgs> { },
   lib ? pkgs.lib,
 }:
@@ -7,37 +8,42 @@
 let
   inherit (lib) mkOption types;
 
-  finalPkgs = pkgs.appendOverlays config.nixpkgs.overlays;
+  finalPkgs =
+    if eval.config.nixpkgs.overlays == [ ] then
+      pkgs
+    else
+      pkgs.appendOverlays eval.config.nixpkgs.overlays;
+
+  extraModules =
+    (
+      if configuration == null then
+        [ ]
+      else if builtins.isList configuration then
+        configuration
+      else
+        [ configuration ]
+    )
+    ++ modules;
 
   eval = lib.evalModules {
     modules = [
-      (
-        {
-          config,
-          ...
-        }:
-        {
-          options.nixpkgs.overlays = mkOption {
-            default = [ ];
-            type = types.listOf types.unspecified;
-            description = "Nixpkgs overlays used while evaluating asteroidix.";
-          };
+      ({
+        options.nixpkgs.overlays = mkOption {
+          default = [ ];
+          type = types.listOf types.unspecified;
+          description = "Nixpkgs overlays used while evaluating asteroidix.";
+        };
 
-          config = {
-            _module.args = {
-              pkgs = finalPkgs;
-              inherit lib;
-            };
+        config = {
+          _module.args = {
+            pkgs = finalPkgs;
+            inherit lib;
           };
-        }
-      )
-      configuration
-      ./modules/assertions.nix
-      ./modules/base.nix
-      ./modules/source.nix
-      ./modules/asteroidos.nix
-      ./modules/build.nix
-    ];
+        };
+      })
+      ./modules
+    ]
+    ++ extraModules;
   };
 
   failedAssertions = map (x: x.message) (lib.filter (x: !x.assertion) eval.config.assertions);
@@ -49,8 +55,10 @@ let
       lib.showWarnings eval.config.warnings eval.config;
 in
 {
-  inherit (eval) options;
-  inherit config finalPkgs;
+  inherit (eval) options extendModules;
+  inherit config;
+  pkgs = finalPkgs;
+  finalPkgs = finalPkgs; # Backwards-compatible alias
 
   inherit (config.build)
     image

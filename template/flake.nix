@@ -8,7 +8,7 @@
     {
       asteroidixConfigurations.myWatch = asteroidix.lib.asteroidixSystem {
         system = "x86_64-linux";
-        configuration = import ./default.nix;
+        configuration = ./default.nix;
       };
 
       packages.x86_64-linux.default = self.asteroidixConfigurations.myWatch.img;
