@@ -31,6 +31,7 @@ in
         https://ftp.gnu.org/gnu/.* https://mirrors.kernel.org/gnu/ \
         http://ftp.gnu.org/gnu/.* https://mirrors.kernel.org/gnu/ \
         "
+        ASTEROIDIX_PATCHED = "1"
       ''
     );
 
@@ -47,9 +48,11 @@ in
     ];
 
     layerConfs =
-      lib.optionals (config.variant == "nightly-patched") [
-        "meta-asteroidix-nightly"
-      ]
+      lib.optionals
+        (config.variant == "nightly-patched" || (config.channel == "nightly" && config.machine == "eos"))
+        [
+          "meta-asteroidix-nightly"
+        ]
       ++ lib.optionals (config.flavor == "patched") [
         "meta-asteroidix-local"
       ]
@@ -131,12 +134,15 @@ in
           src = ../meta-asteroidix-local;
         };
       }
-      // lib.optionalAttrs (config.variant == "nightly-patched") {
-        meta-asteroidix-nightly = {
-          relpath = "src/meta-asteroidix-nightly";
-          src = ../meta-asteroidix-nightly;
-        };
-      }
+      //
+        lib.optionalAttrs
+          (config.variant == "nightly-patched" || (config.channel == "nightly" && config.machine == "eos"))
+          {
+            meta-asteroidix-nightly = {
+              relpath = "src/meta-asteroidix-nightly";
+              src = ../meta-asteroidix-nightly;
+            };
+          }
       // lib.mapAttrs (_: layer: {
         relpath = layer.relpath;
         src =
