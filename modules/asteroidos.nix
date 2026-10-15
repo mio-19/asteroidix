@@ -32,6 +32,7 @@ in
         http://ftp.gnu.org/gnu/.* https://mirrors.kernel.org/gnu/ \
         "
         ASTEROIDIX_PATCHED = "1"
+        MACHINE_HAS_WLAN:hoki = "true"
       ''
     );
 
