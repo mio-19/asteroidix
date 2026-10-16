@@ -62,13 +62,10 @@ The watch sends `0` again after 30 seconds. A companion rings the phone by subsc
 The `hoki-nightly-patched` image incorporates community hardware enablement for the Fossil Gen 6 platform (DW13), based on hardware research, driver fixes, and testing by `pettcomputers`:
 
 - **Speaker & Microphone (Audio)**:
-  - Tracked in [AsteroidOS/meta-smartwatch#343: hoki: audio: speaker and microphone working](https://github.com/AsteroidOS/meta-smartwatch/issues/343).
-  - Reference branch: [`pettcomputers/meta-smartwatch` (`hoki-audio`)](https://github.com/pettcomputers/meta-smartwatch/tree/hoki-audio).
-  - Resolves the ALSA Y2038 32-bit `struct snd_pcm_sync_ptr` ioctl size mismatch (`-ENOTTY`) by passing `-U_TIME_BITS` in `alsa-lib`.
-  - Enables missing internal Qualcomm analog/digital codec modules (`audio_analog_cdc`, `audio_digital_cdc_legacy`) and makes `asoc/codecs` recursion unconditional in the out-of-tree audio module build.
-  - Installs TFA98xx smart amplifier DSP container firmware (`tfa98xx.cnt`) from `/system/etc/firmware/` into `/lib/firmware/`.
-  - Configures ALSA DAPM routing (`QUAT_MI2S_RX` for speaker, `TERT_MI2S_TX` and `DMIC1` for digital mic) after PulseAudio's startup probe settles.
-  - Patches `pcm_native.c` in the kernel to guard `pm_qos_remove_request()` with `pm_qos_request_active()`.
+  - Merged directly into upstream `meta-smartwatch` via [AsteroidOS/meta-smartwatch#357: hoki: Fix microphone and speaker](https://github.com/AsteroidOS/meta-smartwatch/pull/357) by `MagneFire` (superseding PR #344 and building upon research by `pettcomputers` in [#343](https://github.com/AsteroidOS/meta-smartwatch/issues/343)).
+  - Upstream integrates audio via `meta-smartwatch` master: enables `MACHINE_HAS_SPEAKER = "true"` in `meta-hoki/conf/machine/hoki.conf`, builds internal Qualcomm codec modules (`sdm660_cdc` for `audio_analog_cdc` and `audio_digital_cdc`), and configures PulseAudio with `module-droid-card` at 48 kHz mono.
+  - As a result, official upstream builds (`hoki-nightly-official`) and patched builds (`hoki-nightly-patched`) both benefit from upstream audio support natively without downstream audio packaging.
+  - The patched variant maintains the kernel patch in `linux-hoki` guarding `pm_qos_remove_request()` with `pm_qos_request_active()`.
 
 - **WLAN (Wi-Fi)**:
   - Tracked in [AsteroidOS/meta-smartwatch#224: wifi support](https://github.com/AsteroidOS/meta-smartwatch/issues/224).
