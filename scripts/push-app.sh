@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: push-app [--target <target>] [--method <adb|ssh>] [--package <name>] [--path <path-or-ipk>]
+Usage: push-app [--target <target>] [--port <port>] [--emulator] [--method <adb|ssh>] [--package <name>] [--path <path-or-ipk>]
 
 Push and install an AsteroidOS application package (.ipk) or directory to a watch.
 Follows AsteroidOS OpenEmbedded app deployment guidelines (ADB and SSH/opkg methods).
@@ -12,6 +12,8 @@ Options:
   -t, --target <target>     Target watch address/specifier:
                             - For SSH: [user@]host (e.g. root@192.168.2.15 or 192.168.2.15)
                             - For ADB: device serial (optional, passed to adb -s <serial>)
+  -P, --port <port>         SSH port (default: 22, or 2222 with --emulator)
+  -q, --emulator            Target local AsteroidOS emulator (root@localhost:2222 over SSH)
   -m, --method <method>     Deployment method: 'adb', 'ssh', or 'auto' (default: auto)
   -p, --package <name>      Package name to deploy (e.g. asteroid-findphone)
                             Searches for matching .ipk in ./result/packages or ./result/ipk,
@@ -27,6 +29,9 @@ Examples:
   # Push findphone IPK via SSH / Wi-Fi
   push-app --package asteroid-findphone --target root@192.168.2.15
 
+  # Push findphone IPK to local emulator
+  push-app --package asteroid-findphone --emulator
+
   # Push arbitrary .ipk package directly
   push-app --file path/to/asteroid-findphone_1.0-r0_armv7vehf-neon.ipk --method adb
 USAGE
@@ -34,6 +39,8 @@ USAGE
 }
 
 TARGET=""
+PORT=""
+EMULATOR=0
 METHOD="auto"
 PACKAGE=""
 FILE=""
@@ -44,6 +51,15 @@ while [[ $# -gt 0 ]]; do
     -t|--target)
       TARGET="$2"
       shift 2
+      ;;
+    -P|--port)
+      PORT="$2"
+      shift 2
+      ;;
+    -q|--emulator)
+      EMULATOR=1
+      METHOD="ssh"
+      shift
       ;;
     -m|--method)
       METHOD="$2"
@@ -106,9 +122,16 @@ if [ -z "$FILE" ] && [ -n "$PACKAGE" ]; then
   fi
 fi
 
+# Configure emulator defaults if requested
+if [ "$EMULATOR" -eq 1 ]; then
+  TARGET="${TARGET:-root@localhost}"
+  PORT="${PORT:-2222}"
+  METHOD="ssh"
+fi
+
 # Detect method if auto
 if [ "$METHOD" = "auto" ]; then
-  if [ -n "$TARGET" ] && [[ "$TARGET" =~ (@|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+) ]]; then
+  if [ -n "$TARGET" ] && [[ "$TARGET" =~ (@|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+|localhost) ]]; then
     METHOD="ssh"
   elif command -v adb >/dev/null 2>&1 && adb get-state >/dev/null 2>&1; then
     METHOD="adb"
@@ -150,12 +173,19 @@ deploy_ipk_ssh() {
     dest_host="root@$dest_host"
   fi
 
-  echo "==> Deploying $ipk via SSH to $dest_host..."
+  local ssh_port_opts=()
+  local scp_port_opts=()
+  if [ -n "$PORT" ]; then
+    ssh_port_opts=( -p "$PORT" )
+    scp_port_opts=( -P "$PORT" )
+  fi
+
+  echo "==> Deploying $ipk via SSH to $dest_host${PORT:+ (port $PORT)}..."
   echo "--> Copying package..."
-  scp "$ipk" "$dest_host:/tmp/$ipk_basename"
+  scp "${scp_port_opts[@]}" "$ipk" "$dest_host:/tmp/$ipk_basename"
 
   echo "--> Installing package on watch via opkg..."
-  ssh "$dest_host" "opkg --force-reinstall install /tmp/$ipk_basename && rm -f /tmp/$ipk_basename"
+  ssh "${ssh_port_opts[@]}" "$dest_host" "opkg --force-reinstall install /tmp/$ipk_basename && rm -f /tmp/$ipk_basename"
   echo "==> Successfully installed $ipk_basename via SSH!"
 }
 

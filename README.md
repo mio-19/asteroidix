@@ -255,16 +255,19 @@ nix run .#push-app -- --file path/to/asteroid-findphone_1.0-r0_armv7vehf-neon.ip
 
 The script transfers the package to `/tmp` and executes `opkg --force-reinstall install`, making the app immediately available on the watch.
 
-## Running the AsteroidOS emulator
+## Running the emulator (macOS & Linux)
 
-AsteroidOS provides official emulator support using QEMU with Virgil3D (`virglrenderer`) paravirtualized OpenGL acceleration. `asteroidix` makes running and testing in the emulator turnkey:
+`asteroidix` includes cross-platform support for running AsteroidOS inside QEMU, working natively on macOS (Darwin, including Apple Silicon `aarch64-darwin` and Intel `x86_64-darwin`) as well as Linux.
 
 ### Quick launch
 
+Run the emulator using the Nix flake app (which automatically provides QEMU and dependencies):
+
 ```bash
-# Launch via Nix flake app
+# Launch via Nix flake app:
 nix run .#emulator
-# or directly via the helper script:
+
+# Or directly via the helper script:
 ./scripts/run-emulator.sh
 ```
 
@@ -274,41 +277,47 @@ nix run .#emulator
 ### Options & flags
 
 ```bash
-# Run in snapshot mode (disposable session; disk writes are not saved)
+# Run in snapshot mode (disposable session; disk writes are not saved):
 nix run .#emulator -- --snapshot
 
-# Forward guest SSH to a custom host port (default is 2222)
+# Run headless (serial console in terminal only):
+nix run .#emulator -- --nographic
+
+# Run using a specific built image directory:
+nix run .#emulator -- --image-dir ./result/images
+
+# Forward guest SSH to a custom host port (default is 2222):
 nix run .#emulator -- --port 2223
 
-# Force redownload of the latest upstream nightly image
+# Force redownload of the latest upstream nightly image:
 nix run .#emulator -- --fetch-nightly
 
-# Use a specific display backend (default: sdl,gl=on; alternative: gtk,gl=on)
-nix run .#emulator -- --display gtk,gl=on
-
-# Point to custom kernel and rootfs binaries
+# Point to custom kernel and rootfs binaries:
 nix run .#emulator -- --kernel ./path/to/bzImage.bin --rootfs ./path/to/rootfs.ext4
 ```
+
+### Platform-specific details
+
+- **macOS (Darwin Apple Silicon `aarch64-darwin`)**: Uses QEMU's TCG software emulation engine (`-accel tcg`) to execute the x86_64 guest on ARM64 host, displaying the 800x800 watch interface via the native macOS Cocoa windowing system (`-display cocoa`) with `virtio-vga` and absolute touchscreen coordinates via `-usb -device usb-tablet`.
+- **macOS (Darwin Intel `x86_64-darwin`)**: Uses `-accel hvf -accel tcg` for hardware acceleration.
+- **Linux (`x86_64-linux`)**: Uses KVM (`-enable-kvm`) when `/dev/kvm` is accessible, with support for Virgil3D hardware rendering (`-device virtio-vga-gl -display sdl,gl=on`) or `virtio-vga` fallback.
 
 ### SSH and app development on the emulator
 
 1. **SSH Connection**:
-   The emulator maps host port `2222` to guest port `22`. Connect directly:
+   The emulator maps host port `2222` to guest port `22`:
    ```bash
+   # Connect as default user (ceres):
    ssh -p 2222 ceres@localhost
-   # or as root:
+   # Or as root:
    ssh -p 2222 root@localhost
    ```
 
 2. **Deploying apps to the emulator**:
-   Use `push-app` over SSH to install `.ipk` packages onto the running emulator:
+   Use `push-app` with the `--emulator` flag to install `.ipk` packages onto the running emulator over SSH:
    ```bash
-   nix run .#push-app -- --target root@localhost --method ssh --package asteroid-findphone
+   nix run .#push-app -- --emulator --package asteroid-findphone
    ```
-
-> [!TIP]
-> - **Session Type**: Virgil3D hardware 3D acceleration works best in a **Wayland** session (`echo $XDG_SESSION_TYPE`).
-> - **KVM Acceleration**: The runner automatically checks for `/dev/kvm` and enables hardware virtualization when available.
 
 ## Source directories
 
