@@ -35,6 +35,7 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 **Patched** (`*-patched`) is the official configuration for that branch plus mio's Nix sandbox fixes in [`meta-asteroidix-local`](./meta-asteroidix-local). `nightly-patched` is the default, and it also includes [`meta-asteroidix-nightly`](./meta-asteroidix-nightly):
 
 - Find phone, on every nightly-patched machine: a launcher app that asks the paired phone to ring. See below.
+- Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), and GPS (GNSS). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
 - Nix sandbox fixes, on every patched machine, nightly and stable:
   - `perl`: fall back to `cpp -dM` when the Errno header scan finds nothing
@@ -52,6 +53,33 @@ Every nightly-patched image installs `asteroid-findphone` and patches `asteroid-
 - Value: one byte, `1` starts ringing and `0` stops
 
 The watch sends `0` again after 30 seconds. A companion rings the phone by subscribing to that characteristic and playing a ringtone while the value is `1`. Stock AsteroidOS Sync does not subscribe yet, so the phone stays quiet until the companion implements this.
+
+### Fossil Gen 6 (hoki) hardware enablement
+
+The `hoki-nightly-patched` image incorporates community hardware enablement for the Fossil Gen 6 platform (DW13), based on hardware research, driver fixes, and testing by `pettcomputers`:
+
+- **Speaker & Microphone (Audio)**:
+  - Tracked in [AsteroidOS/meta-smartwatch#343: hoki: audio: speaker and microphone working](https://github.com/AsteroidOS/meta-smartwatch/issues/343).
+  - Reference branch: [`pettcomputers/meta-smartwatch` (`hoki-audio`)](https://github.com/pettcomputers/meta-smartwatch/tree/hoki-audio).
+  - Resolves the ALSA Y2038 32-bit `struct snd_pcm_sync_ptr` ioctl size mismatch (`-ENOTTY`) by passing `-U_TIME_BITS` in `alsa-lib`.
+  - Enables missing internal Qualcomm analog/digital codec modules (`audio_analog_cdc`, `audio_digital_cdc_legacy`) and makes `asoc/codecs` recursion unconditional in the out-of-tree audio module build.
+  - Installs TFA98xx smart amplifier DSP container firmware (`tfa98xx.cnt`) from `/system/etc/firmware/` into `/lib/firmware/`.
+  - Configures ALSA DAPM routing (`QUAT_MI2S_RX` for speaker, `TERT_MI2S_TX` and `DMIC1` for digital mic) after PulseAudio's startup probe settles.
+  - Patches `pcm_native.c` in the kernel to guard `pm_qos_remove_request()` with `pm_qos_request_active()`.
+
+- **WLAN (Wi-Fi)**:
+  - Tracked in [AsteroidOS/meta-smartwatch#224: wifi support](https://github.com/AsteroidOS/meta-smartwatch/issues/224).
+  - Reference branch: [`pettcomputers/meta-smartwatch` (`hoki-wifi`)](https://github.com/pettcomputers/meta-smartwatch/tree/hoki-wifi).
+  - Integrates the out-of-tree Qualcomm Prima/pronto driver (`vendor_qcom_opensource_wlan_prima`) with a fix for a BT SCO profile use-before-assignment kernel panic.
+  - Symlinks vendor WCNSS firmware files (`WCNSS_qcom_cfg.ini`, `WCNSS_qcom_wlan_nv.bin`, `WCNSS_wlan_dictionary.dat`) and triggers power-up via `/dev/wcnss_wlan`.
+  - Enables `MACHINE_HAS_WLAN:hoki = "true"`, pulling `wpa-supplicant` and `connman-client` into the image.
+
+- **GPS (GNSS)**:
+  - Tracked in [AsteroidOS/meta-smartwatch#252: [hoki] GPS support](https://github.com/AsteroidOS/meta-smartwatch/issues/252).
+  - Reference branches: [`pettcomputers/meta-smartwatch` (`hoki-gps`)](https://github.com/pettcomputers/meta-smartwatch/tree/hoki-gps) and [`pettcomputers/meta-asteroid` (`geoclue-hybris-setuid-fix`)](https://github.com/pettcomputers/meta-asteroid/tree/geoclue-hybris-setuid-fix).
+  - Symlinks the vendor HAL binary `android.hardware.gnss@1.0-service-qti` to `android.hardware.gnss@1.0-service` matching `hal-droid` init expectations.
+  - Deploys `/etc/gps_xtra.ini` with `NTP_FORCE_INJECT=true` to enable NTP AGPS assistance over Wi-Fi.
+  - Drops setuid bit on `/usr/libexec/geoclue-hybris` (`04755` -> `0755`) to prevent `glibc` from stripping `DBUS_SESSION_BUS_ADDRESS`.
 
 ## Quick start
 
