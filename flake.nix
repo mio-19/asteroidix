@@ -124,6 +124,7 @@
               curl
               findutils
               qemu
+              e2fsprogs
             ];
             text = ''
               exec env REPO_ROOT="$PWD" ${./scripts/run-emulator.sh} "$@"

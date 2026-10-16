@@ -22,6 +22,7 @@ Options:
   -c, --cpus <count>         Virtual CPU cores allocated for QEMU (default: auto, up to 4)
   -m, --memory <size>        Memory size allocated for QEMU (default: 512M)
   -d, --display <backend>    QEMU display backend: cocoa, sdl, default, none, curses (default: auto)
+      --vnc [display]        Enable VNC display server (e.g. :0 for port 5900; open vnc://localhost:5900)
   -v, --video <device>       QEMU video device: virtio-vga, virtio-vga-gl, virtio-gpu-pci (default: auto)
   -a, --accel <accel>        QEMU accelerator: tcg, hvf, kvm (default: auto)
   -s, --snapshot             Do not write changes back to the rootfs disk image
@@ -62,6 +63,7 @@ SSH_PORT="2222"
 CPUS=""
 MEM_SIZE="512M"
 DISPLAY_OPT=""
+VNC_OPT=""
 VIDEO_DEVICE=""
 ACCEL=""
 RESOLUTION="800x800"
@@ -99,6 +101,15 @@ while [[ $# -gt 0 ]]; do
     -d|--display)
       DISPLAY_OPT="$2"
       shift 2
+      ;;
+    --vnc)
+      if [[ $# -ge 2 && "$2" != -* ]]; then
+        VNC_OPT="$2"
+        shift 2
+      else
+        VNC_OPT=":0"
+        shift 1
+      fi
       ;;
     -v|--video)
       VIDEO_DEVICE="$2"
@@ -267,6 +278,52 @@ if [ ! -f "$ROOTFS" ]; then
   exit 1
 fi
 
+# Patch rootfs if needed (ensure systemd user timeout is extended and KMS matches DRM)
+patch_rootfs_if_needed() {
+  local rootfs_path="$1"
+  if command -v debugfs >/dev/null 2>&1 && [ -w "$rootfs_path" ]; then
+    # 1. Ensure systemd user manager timeout is relaxed (600s)
+    # Under emulation (especially TCG on Darwin), Mesa LLVMpipe JIT shader
+    # compilation takes ~60-120s on cold boot. systemd --user defaults to 90s,
+    # which kills asteroid-launcher with SIGKILL before it signals READY=1.
+    local timeout_check
+    timeout_check="$(debugfs -R "cat /etc/systemd/user.conf.d/timeout.conf" "$rootfs_path" 2>/dev/null || true)"
+    if ! echo "$timeout_check" | grep -q "DefaultTimeoutStartSec"; then
+      echo "==> Configuring systemd user timeout in rootfs (relaxed for emulator)..."
+      local tmp_conf
+      tmp_conf="$(mktemp "${TMPDIR:-/tmp}/user-timeout.XXXXXX.conf")"
+      printf "[Manager]\nDefaultTimeoutStartSec=600s\n" > "$tmp_conf"
+      debugfs -w -R "mkdir /etc/systemd/user.conf.d" "$rootfs_path" >/dev/null 2>&1 || true
+      debugfs -w -R "rm /etc/systemd/user.conf.d/timeout.conf" "$rootfs_path" >/dev/null 2>&1 || true
+      debugfs -w -R "write $tmp_conf /etc/systemd/user.conf.d/timeout.conf" "$rootfs_path" >/dev/null 2>&1 || true
+      rm -f "$tmp_conf"
+    fi
+
+    # 2. Ensure kms.json matches Linux virtio connector naming Virtual-1
+    local kms_check
+    kms_check="$(debugfs -R "cat /var/lib/environment/compositor/kms.json" "$rootfs_path" 2>/dev/null || true)"
+    if ! echo "$kms_check" | grep -q "Virtual-1"; then
+      local tmp_kms
+      tmp_kms="$(mktemp "${TMPDIR:-/tmp}/kms.XXXXXX.json")"
+      cat << 'EOF' > "$tmp_kms"
+{
+  "device": "/dev/dri/card0",
+  "hwcursor": false,
+  "outputs": [
+    { "name": "Virtual-1", "mode": "800x800" },
+    { "name": "Virtual1", "mode": "800x800" }
+  ]
+}
+EOF
+      debugfs -w -R "rm /var/lib/environment/compositor/kms.json" "$rootfs_path" >/dev/null 2>&1 || true
+      debugfs -w -R "write $tmp_kms /var/lib/environment/compositor/kms.json" "$rootfs_path" >/dev/null 2>&1 || true
+      rm -f "$tmp_kms"
+    fi
+  fi
+}
+
+patch_rootfs_if_needed "$ROOTFS"
+
 # Configure Accelerator
 ACCEL_ARGS=()
 if [ -n "$ACCEL" ]; then
@@ -307,6 +364,9 @@ VIDEO_ARGS=()
 if [ "$NOGRAPHIC" -eq 1 ]; then
   DISPLAY_ARGS=( -display none )
   VIDEO_ARGS=()
+elif [ -n "$VNC_OPT" ]; then
+  DISPLAY_ARGS=( -vnc "$VNC_OPT" )
+  VIDEO_ARGS=( -device "virtio-vga,xres=$XRES,yres=$YRES" )
 else
   if [ -n "$DISPLAY_OPT" ]; then
     DISPLAY_ARGS=( -display "$DISPLAY_OPT" )
@@ -348,9 +408,11 @@ if [ "$SNAPSHOT" -eq 1 ]; then
 fi
 
 # Kernel Command Line
+# Pass console=tty0 console=ttyS0 so boot messages, kernel logs, and early login
+# appear directly on the GUI display (tty0) as well as the terminal serial console (ttyS0).
 # Include systemd.default_timeout_start_sec=300s to allow software rasterizer (LLVMpipe)
-# enough time to initialize and compile QML watchfaces on cold start without hitting timeout
-KERNEL_CMDLINE="verbose root=/dev/sda rw mem=$MEM_SIZE video=$RESOLUTION console=ttyS0 systemd.default_timeout_start_sec=300s"
+# enough time to initialize without hitting systemd unit startup timeouts.
+KERNEL_CMDLINE="verbose root=/dev/sda rw mem=$MEM_SIZE video=$RESOLUTION console=tty0 console=ttyS0 systemd.default_timeout_start_sec=300s"
 
 echo "=========================================================="
 echo " Starting AsteroidOS Emulator"
@@ -366,16 +428,29 @@ echo " SSH Forward:   localhost:$SSH_PORT -> guest:22"
 echo " Snapshot Mode: $([ "$SNAPSHOT" -eq 1 ] && echo 'enabled (temporary copy)' || echo 'disabled (persistent writes)')"
 echo "=========================================================="
 echo "Tips:"
+if [ -n "$VNC_OPT" ]; then
+echo " - VNC Server:       Listening on $VNC_OPT"
+if [ "$HOST_OS" = "Darwin" ]; then
+echo "                     Open in macOS Screen Sharing: open vnc://localhost:5900"
+fi
+else
 echo " - GUI Window:       AsteroidOS watchface will appear in the QEMU GUI window."
-if [ "$HOST_OS" = "Darwin" ] && [ "$HOST_ARCH" = "arm64" ] && [ "$NOGRAPHIC" -eq 0 ]; then
-echo "                     Note: Software rasterization (LLVMpipe) renders the watchface in ~10-20s."
+echo "                     (Early boot displays on screen; watchface draws after ~10-20s)"
 fi
 echo " - Log in via SSH:   ssh -p $SSH_PORT ceres@localhost (no password)"
 echo " - Or as root:       ssh -p $SSH_PORT root@localhost"
 echo " - Deploy packages:  nix run .#push-app -- --emulator --package <name>"
 echo " - Serial console:   Active in this terminal."
-echo " - To exit QEMU:     Ctrl-A X (terminal) or Cmd-Q (GUI window)"
+echo " - To exit QEMU:     Cmd-Q (GUI window) or Ctrl-A X (terminal)"
 echo "=========================================================="
+
+# On macOS, bring the QEMU Cocoa window to front so it does not hide behind terminal
+if [ "$HOST_OS" = "Darwin" ] && [ "$NOGRAPHIC" -eq 0 ] && [ -z "$VNC_OPT" ]; then
+  (
+    sleep 1
+    osascript -e 'tell application "System Events" to set frontmost of first process whose name contains "qemu" to true' >/dev/null 2>&1 || true
+  ) &
+fi
 
 exec "$QEMU_BIN" \
   "${ACCEL_ARGS[@]}" \

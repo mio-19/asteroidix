@@ -274,6 +274,9 @@ nix run .#emulator
 ### Options & flags
 
 ```bash
+# Run with VNC display server (built-in macOS Screen Sharing: open vnc://localhost:5900):
+nix run .#emulator -- --vnc :0
+
 # Run in snapshot mode (disposable session; disk writes are not saved):
 nix run .#emulator -- --snapshot
 
@@ -298,7 +301,7 @@ nix run .#emulator -- --kernel ./path/to/bzImage.bin --rootfs ./path/to/rootfs.e
 
 ### Platform-specific details
 
-- **macOS (Darwin Apple Silicon `aarch64-darwin`)**: Uses QEMU multi-threaded TCG (`-accel tcg,thread=multi -smp 4`) to execute the x86_64 guest on ARM64 host, displaying the 800x800 watch interface via the native macOS Cocoa windowing system (`-display cocoa`) with custom EDID virtio-vga (`-device virtio-vga,xres=800,yres=800`) and absolute touchscreen coordinates via `-usb -device usb-tablet`. The software rasterizer (LLVMpipe) renders the watchface in ~10-20 seconds.
+- **macOS (Darwin Apple Silicon `aarch64-darwin`)**: Uses QEMU multi-threaded TCG (`-accel tcg,thread=multi -smp 4`) to execute the x86_64 guest on ARM64 host, displaying the 800x800 watch interface via the native macOS Cocoa window (`-display cocoa`) or VNC (`--vnc :0`), with custom EDID virtio-vga (`-device virtio-vga,xres=800,yres=800`) and absolute touchscreen coordinates via `-usb -device usb-tablet`. Kernel boot messages and login appear directly in the GUI window (`console=tty0 console=ttyS0`), followed by the watchface.
 - **macOS (Darwin Intel `x86_64-darwin`)**: Uses `-accel hvf -accel tcg,thread=multi` with multi-core SMP for hardware acceleration.
 - **Linux (`x86_64-linux`)**: Uses KVM (`-enable-kvm`) when `/dev/kvm` is accessible, with support for Virgil3D hardware rendering (`-device virtio-vga-gl -display sdl,gl=on`) or `virtio-vga` fallback.
 
