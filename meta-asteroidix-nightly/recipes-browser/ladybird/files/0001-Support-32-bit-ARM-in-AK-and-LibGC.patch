@@ -1,0 +1,79 @@
+From: Antigravity <antigravity@google.com>
+Date: Sat, 17 Oct 2026 06:58:00 +1100
+Subject: [PATCH] Support 32-bit ARM in AK and LibGC
+
+- Define AK_IS_ARCH_ARM() in AK/Platform.h for 32-bit ARM architectures.
+- Adjust NanBoxedValue assertion from sizeof(void*) == sizeof(u64) to
+  sizeof(void*) <= sizeof(u64) since 32-bit pointers fit within the 48-bit
+  NaN payload.
+- Define a 256 MiB HEAP_REGION_SIZE for 32-bit architectures in LibGC/HeapRegion.h
+  fitting within the 32-bit virtual address space.
+- Change static_assert in BlockAllocator.cpp to sizeof(FlatPtr) >= sizeof(void*).
+
+Upstream-Status: Inappropriate [Architecture enablement for resource-constrained 32-bit systems]
+Signed-off-by: Antigravity <antigravity@google.com>
+---
+ AK/Platform.h                    | 6 ++++++
+ Libraries/LibGC/BlockAllocator.cpp | 2 +-
+ Libraries/LibGC/HeapRegion.h    | 2 ++
+ Libraries/LibGC/NanBoxedValue.h  | 2 +-
+ 4 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/AK/Platform.h b/AK/Platform.h
+index b746813..c82974b 100644
+--- a/AK/Platform.h
++++ b/AK/Platform.h
+@@ -31,6 +31,12 @@
+ #    define AK_IS_ARCH_AARCH64() 1
+ #else
+ #    define AK_IS_ARCH_AARCH64() 0
++#endif
++
++#if defined(__arm__) || defined(__thumb__) || defined(_M_ARM)
++#    define AK_IS_ARCH_ARM() 1
++#else
++#    define AK_IS_ARCH_ARM() 0
+ #endif
+ 
+ #if defined(__riscv) && __riscv_xlen == 64
+diff --git a/Libraries/LibGC/BlockAllocator.cpp b/Libraries/LibGC/BlockAllocator.cpp
+index 7258e77..fa9a6be 100644
+--- a/Libraries/LibGC/BlockAllocator.cpp
++++ b/Libraries/LibGC/BlockAllocator.cpp
+@@ -48,7 +48,7 @@ public:
+ 
+     HeapRegion()
+     {
+-        static_assert(sizeof(FlatPtr) >= sizeof(u64));
++        static_assert(sizeof(FlatPtr) >= sizeof(void*));
+         Checked<size_t> reservation_size = size;
+         reservation_size += size;
+         VERIFY(!reservation_size.has_overflow());
+diff --git a/Libraries/LibGC/HeapRegion.h b/Libraries/LibGC/HeapRegion.h
+index 1ba3c72..984b55e 100644
+--- a/Libraries/LibGC/HeapRegion.h
++++ b/Libraries/LibGC/HeapRegion.h
+@@ -19,6 +19,8 @@ namespace GC {
+ #elif defined(HAS_THREAD_SANITIZER)
+ // ThreadSanitizer only lets the application map a few TiB of its own address space, not enough
+ // for the region-sized reservation plus the second one used to align its base.
+ static constexpr size_t HEAP_REGION_SIZE = 128ull * GiB;
++#elif defined(AK_ARCH_32_BIT)
++static constexpr size_t HEAP_REGION_SIZE = 256ull * MiB;
+ #else
+ static constexpr size_t HEAP_REGION_SIZE = 4ull * TiB;
+ #endif
+diff --git a/Libraries/LibGC/NanBoxedValue.h b/Libraries/LibGC/NanBoxedValue.h
+index b6289b4..f812111 100644
+--- a/Libraries/LibGC/NanBoxedValue.h
++++ b/Libraries/LibGC/NanBoxedValue.h
+@@ -14,7 +14,7 @@ namespace GC {
+ 
+ static_assert(sizeof(double) == 8);
+-static_assert(sizeof(void*) == sizeof(u64));
++static_assert(sizeof(void*) <= sizeof(u64));
+ // To make our Value representation compact we can use the fact that IEEE
+ // doubles have a lot (2^52 - 2) of NaN bit patterns. The canonical form being
+ // just 0x7FF8000000000000 i.e. sign = 0 exponent is all ones and the top most
+-- 
+2.45.1
