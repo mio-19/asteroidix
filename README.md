@@ -38,8 +38,8 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 
 - Find phone, on every nightly-patched machine: a launcher app that asks the paired phone to ring. See below.
 - Community applications on every nightly-patched machine: `unofficial-watchfaces`, `asteroid-blaster`, `asteroid-dodger`, `asteroid-health`, `asteroid-map`, `asteroid-qmltester`, `asteroid-skedaddle`, and `asteroid-weatherfetch`. See below.
-- Smartwatch Web Browser (`asteroid-browser`): a lightweight native Qt 6 rich-text web browser app designed for watch screens (32-bit ARM on hoki, 64-bit ARM on Pixel Watch 2/3).
-- Ladybird Browser (`ladybird`): standalone modern web browser engine ported to AsteroidOS with 32-bit ARM userspace support (hoki) and 64-bit ARM support (aurora, eos, solios, seluna).
+- Smartwatch Web Browser (`asteroid-browser`): a lightweight native Qt 6 rich-text web browser app designed for watch screens (32-bit ARM userspace across all watch targets including hoki, aurora, eos, solios, and seluna).
+- Ladybird Browser (`ladybird`): standalone modern web browser engine ported to AsteroidOS with 32-bit ARM userspace support (via LibGC cage scaling and AK 32-bit support).
 - Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), and Blood Oxygen (SpO2). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
 - Nix sandbox compatibility (across all builds):
@@ -110,11 +110,11 @@ Every nightly-patched image bundles the full suite of popular AsteroidOS communi
 1. **`asteroid-browser`** (included in `nightly-patched` images):
    - A lightweight, native AsteroidOS application targeting Qt 6 and `AsteroidApp6`.
    - Optimized specifically for small circular watch displays: touch-friendly circular UI, web search, quick bookmark cards, history, and rich-text web page reader mode.
-   - Built for both 32-bit ARM (`armv7vehf-neon` on Fossil Gen 6 `hoki`) and 64-bit ARM (`aarch64` on Pixel Watch 2/3).
+   - Built for the 32-bit ARM userspace (`armv7vehf-neon`) used across AsteroidOS smartwatch targets (`hoki`, `aurora`, `eos`, `solios`, `seluna`).
 
 2. **`ladybird`** (independent browser engine):
    - Standalone modern web browser engine recipe in `meta-asteroidix-custom/recipes-browser/ladybird`.
-   - Includes custom AsteroidOS compatibility patches for 32-bit ARM userspace (`0001-Support-32-bit-ARM-in-AK-and-LibGC.patch` in AK and LibGC) as well as 64-bit ARM (`aurora`, `eos`, `solios`, `seluna`).
+   - Includes custom AsteroidOS compatibility patches for 32-bit ARM userspace (`0001-Support-32-bit-ARM-in-AK-and-LibGC.patch` in AK and LibGC) enabling compilation for all AsteroidOS smartwatch targets.
    - Includes `scripts/test-ladybird-watch-ui.sh` for headless rendering and screenshot verification under smartwatch display dimensions (e.g. 416x416 circular viewport).
    - Can be deployed to your watch using `push-app`:
      ```bash
