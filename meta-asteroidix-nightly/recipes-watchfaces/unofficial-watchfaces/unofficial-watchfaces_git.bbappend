@@ -1,8 +1,6 @@
 SRC_URI = "git://github.com/AsteroidOS/unofficial-watchfaces.git;protocol=https;branch=master"
 SRCREV = "2d8247c28262ba686f49a873beba4d6bff4183c1"
 
-S = "${WORKDIR}/git"
-
 # Disable dynamic package-feed sub-recipe build dependencies for offline build compatibility
 do_build[depends] = ""
 WATCHFACES = ""
@@ -10,24 +8,22 @@ WATCHFACES = ""
 do_configure[noexec] = "1"
 do_compile[noexec] = "1"
 
-FILES:${PN} = "${datadir}/asteroid-launcher/ ${datadir}/fonts/"
+FILES:${PN} = "${datadir}/asteroid-launcher/"
 
 do_install() {
     install -d ${D}${datadir}/asteroid-launcher/watchfaces
     install -d ${D}${datadir}/asteroid-launcher/watchfaces-img
-    install -d ${D}${datadir}/fonts
 
-    # Install common logo
-    if [ -f "${S}/logo-45degree/usr/share/asteroid-launcher/watchfaces-img/asteroid-logo.svg" ]; then
-        cp -f "${S}/logo-45degree/usr/share/asteroid-launcher/watchfaces-img/asteroid-logo.svg" "${D}${datadir}/asteroid-launcher/watchfaces-img/"
-    fi
-
-    # Install all watchface QML files, preview assets, and fonts
+    # Install all watchface QML files and preview assets (fonts are provided by ttf-asteroid-fonts)
     for dir in ${S}/*/; do
-        if [ -d "$dir/usr/share" ]; then
-            cp -rf "$dir/usr/share/"* "${D}${datadir}/"
+        if [ -d "$dir/usr/share/asteroid-launcher" ]; then
+            cp -rf "$dir/usr/share/asteroid-launcher/"* "${D}${datadir}/asteroid-launcher/"
         fi
     done
+
+    # Remove files that are already provided by asteroid-launcher
+    rm -f ${D}${datadir}/asteroid-launcher/watchfaces-img/asteroid-logo.svg
+    rm -f ${D}${datadir}/asteroid-launcher/watchfaces/weathericons.js
 
     chmod -R u+w,a+rX ${D}${datadir}
 }

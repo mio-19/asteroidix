@@ -38,6 +38,7 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 
 - Find phone, on every nightly-patched machine: a launcher app that asks the paired phone to ring. See below.
 - Community applications on every nightly-patched machine: `unofficial-watchfaces`, `asteroid-blaster`, `asteroid-dodger`, `asteroid-health`, `asteroid-map`, `asteroid-qmltester`, `asteroid-skedaddle`, and `asteroid-weatherfetch`. See below.
+- Smartwatch Web Browser (`asteroid-browser`): a lightweight Qt 6 rich-text web browser app designed for watch screens (arm32 on hoki and aarch64 on Pixel Watch 2/3).
 - Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), and Blood Oxygen (SpO2). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
 - Nix sandbox fixes, on every patched machine, nightly and stable:

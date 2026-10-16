@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Categories=Applications;Network;
+Exec=asteroid-browser
+Icon=ios-globe
+X-Asteroid-Center-Color=#1b3a57
+X-Asteroid-Outer-Color=#0a1824
