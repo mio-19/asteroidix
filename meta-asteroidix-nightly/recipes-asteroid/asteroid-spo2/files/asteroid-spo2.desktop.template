@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Categories=Applications;
+Exec=asteroid-spo2
+Icon=ios-pulse
+X-Asteroid-Center-Color=#962d3e
+X-Asteroid-Outer-Color=#1a050d

@@ -35,7 +35,7 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 **Patched** (`*-patched`) is the official configuration for that branch plus mio's Nix sandbox fixes in [`meta-asteroidix-local`](./meta-asteroidix-local). `nightly-patched` is the default, and it also includes [`meta-asteroidix-nightly`](./meta-asteroidix-nightly):
 
 - Find phone, on every nightly-patched machine: a launcher app that asks the paired phone to ring. See below.
-- Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), and GPS (GNSS). See below.
+- Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), and Blood Oxygen (SpO2). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
 - Nix sandbox fixes, on every patched machine, nightly and stable:
   - `perl`: fall back to `cpp -dM` when the Errno header scan finds nothing
@@ -80,6 +80,13 @@ The `hoki-nightly-patched` image incorporates community hardware enablement for 
   - Symlinks the vendor HAL binary `android.hardware.gnss@1.0-service-qti` to `android.hardware.gnss@1.0-service` matching `hal-droid` init expectations.
   - Deploys `/etc/gps_xtra.ini` with `NTP_FORCE_INJECT=true` to enable NTP AGPS assistance over Wi-Fi.
   - Drops setuid bit on `/usr/libexec/geoclue-hybris` (`04755` -> `0755`) to prevent `glibc` from stripping `DBUS_SESSION_BUS_ADDRESS`.
+
+- **Blood Oxygen Saturation (SpO2)**:
+  - Upstream hardware status: [AsteroidOS Fossil Gen 6 Wiki / Status](https://asteroidos.org/watches/hoki/) lists `Blood Oxygen` as unsupported/bad because AsteroidOS historically possessed no SpO2 software subsystem or pulse oximetry app.
+  - Implements the complete native AsteroidOS SpO2 software subsystem and application `asteroid-spo2` in `meta-asteroidix-nightly`:
+    - Application controller (`SPO2Controller`): executes an active 20-second optical pulse oximetry measurement cycle, computes optical AC/DC ratio-of-ratios $R = \frac{(AC/DC)_{\text{red}}}{(AC/DC)_{\text{ir}}}$ with median filtering against motion artifacts, applies the empirical calibration model $\text{SpO}_2 = 110 - 25 \times R$, integrates with `QHrmSensor` for real-time pulse rate and off-wrist contact detection, persists readings to `QSettings`, and provides WHO hypoxemia classification (Normal $\ge 95\%$, Low $90-94\%$, Critical $<90\%$).
+    - D-Bus Integration: registers `org.asteroidos.spo2` on the session bus for external synchronization and watchface integration.
+    - Native QML UI (`OxygenMeter.qml`, `main.qml`): circular progress arc gauge, real-time pulsating heartbeat animation, dynamic AsteroidOS color theming, and touch controls.
 
 ## Quick start
 
