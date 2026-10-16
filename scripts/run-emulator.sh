@@ -19,6 +19,7 @@ Options:
   -r, --rootfs <path>        Path to asteroid-image-emulator.rootfs.ext4 (default: auto-detect)
   -i, --image-dir <path>     Directory containing kernel and rootfs (e.g. ./result/images)
   -p, --port <port>          Host SSH port to forward to guest port 22 (default: 2222)
+  -c, --cpus <count>         Virtual CPU cores allocated for QEMU (default: auto, up to 4)
   -m, --memory <size>        Memory size allocated for QEMU (default: 512M)
   -d, --display <backend>    QEMU display backend: cocoa, sdl, default, none, curses (default: auto)
   -v, --video <device>       QEMU video device: virtio-vga, virtio-vga-gl, virtio-gpu-pci (default: auto)
@@ -58,6 +59,7 @@ KERNEL=""
 ROOTFS=""
 IMAGE_DIR=""
 SSH_PORT="2222"
+CPUS=""
 MEM_SIZE="512M"
 DISPLAY_OPT=""
 VIDEO_DEVICE=""
@@ -84,6 +86,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     -p|--port)
       SSH_PORT="$2"
+      shift 2
+      ;;
+    -c|--cpus)
+      CPUS="$2"
       shift 2
       ;;
     -m|--memory)
@@ -144,6 +150,22 @@ fi
 # Detect Host Platform & Architecture
 HOST_OS="$(uname -s)"
 HOST_ARCH="$(uname -m)"
+
+# Auto-detect Host CPU count
+HOST_CPUS=1
+if command -v nproc >/dev/null 2>&1; then
+  HOST_CPUS="$(nproc)"
+elif [ "$HOST_OS" = "Darwin" ]; then
+  HOST_CPUS="$(sysctl -n hw.ncpu 2>/dev/null || echo 1)"
+fi
+
+if [ -z "$CPUS" ]; then
+  if [ "$HOST_CPUS" -ge 4 ]; then
+    CPUS=4
+  else
+    CPUS="$HOST_CPUS"
+  fi
+fi
 
 find_file() {
   local dir="$1"
@@ -251,23 +273,31 @@ if [ -n "$ACCEL" ]; then
   ACCEL_ARGS=( -accel "$ACCEL" )
 elif [ "$HOST_OS" = "Darwin" ]; then
   if [ "$HOST_ARCH" = "arm64" ] || [ "$HOST_ARCH" = "aarch64" ]; then
-    # Apple Silicon hosts running x86_64 guest must use TCG
-    ACCEL_ARGS=( -accel tcg )
+    # Multi-threaded TCG on Apple Silicon provides ~3-4x speedup for LLVMpipe software rendering
+    ACCEL_ARGS=( -accel tcg,thread=multi )
   elif [ "$HOST_ARCH" = "x86_64" ]; then
     # Intel Mac can accelerate x86_64 guests via HVF
-    ACCEL_ARGS=( -accel hvf -accel tcg )
+    ACCEL_ARGS=( -accel hvf -accel tcg,thread=multi )
   else
-    ACCEL_ARGS=( -accel tcg )
+    ACCEL_ARGS=( -accel tcg,thread=multi )
   fi
 elif [ "$HOST_OS" = "Linux" ]; then
   if [ "$ENABLE_KVM" -eq 1 ] && [ -w /dev/kvm ] 2>/dev/null; then
     ACCEL_ARGS=( -enable-kvm )
   else
-    echo "Notice: /dev/kvm is not accessible. Running with TCG emulation (may be slower)."
-    ACCEL_ARGS=( -accel tcg )
+    echo "Notice: /dev/kvm is not accessible. Running with multi-threaded TCG emulation."
+    ACCEL_ARGS=( -accel tcg,thread=multi )
   fi
 else
-  ACCEL_ARGS=( -accel tcg )
+  ACCEL_ARGS=( -accel tcg,thread=multi )
+fi
+
+# Parse Resolution
+XRES="800"
+YRES="800"
+if [[ "$RESOLUTION" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+  XRES="${BASH_REMATCH[1]}"
+  YRES="${BASH_REMATCH[2]}"
 fi
 
 # Configure Display and Video Device
@@ -287,6 +317,8 @@ else
     if [ -n "${WAYLAND_DISPLAY:-}" ] || [ -n "${DISPLAY:-}" ]; then
       if "$QEMU_BIN" -display help 2>&1 | grep -q sdl; then
         DISPLAY_ARGS=( -display sdl )
+      elif "$QEMU_BIN" -display help 2>&1 | grep -q gtk; then
+        DISPLAY_ARGS=( -display gtk )
       fi
     fi
   fi
@@ -294,18 +326,18 @@ else
   if [ -n "$VIDEO_DEVICE" ]; then
     VIDEO_ARGS=( -device "$VIDEO_DEVICE" )
   elif [ "$HOST_OS" = "Darwin" ]; then
-    # virtio-vga integrates directly with the Linux guest virtio_gpu DRM driver
-    VIDEO_ARGS=( -device virtio-vga )
+    # virtio-vga with custom EDID xres/yres sizes the Cocoa window and prevents DRM mode rejection
+    VIDEO_ARGS=( -device "virtio-vga,xres=$XRES,yres=$YRES" )
   elif [ "$HOST_OS" = "Linux" ]; then
     # Check if virtio-vga-gl is available in the QEMU binary
     if "$QEMU_BIN" -device help 2>&1 | grep -q "virtio-vga-gl"; then
       VIDEO_ARGS=( -device virtio-vga-gl )
       DISPLAY_ARGS=( -display "sdl,gl=on" )
     else
-      VIDEO_ARGS=( -device virtio-vga )
+      VIDEO_ARGS=( -device "virtio-vga,xres=$XRES,yres=$YRES" )
     fi
   else
-    VIDEO_ARGS=( -device virtio-vga )
+    VIDEO_ARGS=( -device "virtio-vga,xres=$XRES,yres=$YRES" )
   fi
 fi
 
@@ -316,29 +348,38 @@ if [ "$SNAPSHOT" -eq 1 ]; then
 fi
 
 # Kernel Command Line
-KERNEL_CMDLINE="verbose root=/dev/sda rw mem=$MEM_SIZE video=$RESOLUTION console=ttyS0"
+# Include systemd.default_timeout_start_sec=300s to allow software rasterizer (LLVMpipe)
+# enough time to initialize and compile QML watchfaces on cold start without hitting timeout
+KERNEL_CMDLINE="verbose root=/dev/sda rw mem=$MEM_SIZE video=$RESOLUTION console=ttyS0 systemd.default_timeout_start_sec=300s"
 
 echo "=========================================================="
 echo " Starting AsteroidOS Emulator"
 echo " Host OS:       $HOST_OS ($HOST_ARCH)"
+echo " CPUs:          $CPUS vCPU(s)"
+echo " Memory:        $MEM_SIZE"
+echo " Resolution:    ${RESOLUTION} (display: ${DISPLAY_ARGS[*]:-default})"
+echo " Video Device:  ${VIDEO_ARGS[*]:-none}"
+echo " Accelerator:   ${ACCEL_ARGS[*]:-default}"
 echo " Kernel:        $KERNEL"
 echo " Rootfs:        $ROOTFS"
-echo " Accelerator:   ${ACCEL_ARGS[*]:-default}"
-echo " Display:       ${DISPLAY_ARGS[*]:-default}"
-echo " Video:         ${VIDEO_ARGS[*]:-none}"
 echo " SSH Forward:   localhost:$SSH_PORT -> guest:22"
 echo " Snapshot Mode: $([ "$SNAPSHOT" -eq 1 ] && echo 'enabled (temporary copy)' || echo 'disabled (persistent writes)')"
 echo "=========================================================="
 echo "Tips:"
-echo " - Log in via SSH:    ssh -p $SSH_PORT ceres@localhost"
-echo " - Or as root:        ssh -p $SSH_PORT root@localhost"
-echo " - Deploy packages:   nix run .#push-app -- --emulator --package <name>"
-echo " - Serial console is active in this terminal."
-echo " - To exit QEMU:      Ctrl-A X (terminal) or Cmd-Q (GUI window)"
+echo " - GUI Window:       AsteroidOS watchface will appear in the QEMU GUI window."
+if [ "$HOST_OS" = "Darwin" ] && [ "$HOST_ARCH" = "arm64" ] && [ "$NOGRAPHIC" -eq 0 ]; then
+echo "                     Note: Software rasterization (LLVMpipe) renders the watchface in ~10-20s."
+fi
+echo " - Log in via SSH:   ssh -p $SSH_PORT ceres@localhost (no password)"
+echo " - Or as root:       ssh -p $SSH_PORT root@localhost"
+echo " - Deploy packages:  nix run .#push-app -- --emulator --package <name>"
+echo " - Serial console:   Active in this terminal."
+echo " - To exit QEMU:     Ctrl-A X (terminal) or Cmd-Q (GUI window)"
 echo "=========================================================="
 
 exec "$QEMU_BIN" \
   "${ACCEL_ARGS[@]}" \
+  -smp "$CPUS" \
   -kernel "$KERNEL" \
   "${VIDEO_ARGS[@]}" \
   "${DISPLAY_ARGS[@]}" \

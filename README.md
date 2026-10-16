@@ -283,6 +283,9 @@ nix run .#emulator -- --snapshot
 # Run headless (serial console in terminal only):
 nix run .#emulator -- --nographic
 
+# Allocate custom CPU cores (default: auto, up to 4 cores):
+nix run .#emulator -- --cpus 4
+
 # Run using a specific built image directory:
 nix run .#emulator -- --image-dir ./result/images
 
@@ -298,8 +301,8 @@ nix run .#emulator -- --kernel ./path/to/bzImage.bin --rootfs ./path/to/rootfs.e
 
 ### Platform-specific details
 
-- **macOS (Darwin Apple Silicon `aarch64-darwin`)**: Uses QEMU's TCG software emulation engine (`-accel tcg`) to execute the x86_64 guest on ARM64 host, displaying the 800x800 watch interface via the native macOS Cocoa windowing system (`-display cocoa`) with `virtio-vga` and absolute touchscreen coordinates via `-usb -device usb-tablet`.
-- **macOS (Darwin Intel `x86_64-darwin`)**: Uses `-accel hvf -accel tcg` for hardware acceleration.
+- **macOS (Darwin Apple Silicon `aarch64-darwin`)**: Uses QEMU multi-threaded TCG (`-accel tcg,thread=multi -smp 4`) to execute the x86_64 guest on ARM64 host, displaying the 800x800 watch interface via the native macOS Cocoa windowing system (`-display cocoa`) with custom EDID virtio-vga (`-device virtio-vga,xres=800,yres=800`) and absolute touchscreen coordinates via `-usb -device usb-tablet`. The software rasterizer (LLVMpipe) renders the watchface in ~10-20 seconds.
+- **macOS (Darwin Intel `x86_64-darwin`)**: Uses `-accel hvf -accel tcg,thread=multi` with multi-core SMP for hardware acceleration.
 - **Linux (`x86_64-linux`)**: Uses KVM (`-enable-kvm`) when `/dev/kvm` is accessible, with support for Virgil3D hardware rendering (`-device virtio-vga-gl -display sdl,gl=on`) or `virtio-vga` fallback.
 
 ### SSH and app development on the emulator
