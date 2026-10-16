@@ -19,6 +19,8 @@ hoki (Fossil Gen 6) is the watch mio uses, and it is the default machine. There 
 
 aurora (Google Pixel Watch 2, Wi-Fi), eos (Google Pixel Watch 2, LTE), solios (Google Pixel Watch 3, Wi-Fi), and seluna (Google Pixel Watch 3, LTE) are Qualcomm SW5100 targets on nightly. Upstream added `aurora` on nightly and `eos`, `solios`, and `seluna` share its SW5100 kernel and Halium base; each has two images: `nightly-official` and `nightly-patched`. There are no stable images for these devices.
 
+emulator (QEMU x86 with Virgil3D acceleration) allows running and developing for AsteroidOS directly on your desktop without physical smartwatch hardware.
+
 **Nightly** is AsteroidOS 3.0-nightly on `master`: the Qt 6 line for the next release, as described in the [AsteroidOS 2.1 announcement](https://asteroidos.org/news/2-1-release/index.html). Layers match [`prepare-build.sh` on master](https://github.com/AsteroidOS/asteroid/blob/master/prepare-build.sh): Whinlatter, BitBake 2.16, and Qt 6.11, including `meta-qt6`, `meta-clang`, and `meta-virtualization`. The pinned `meta-asteroid` tree still sets `DISTRO_VERSION` to `2.2-nightly`.
 
 **Stable** is AsteroidOS 2.1. Upstream keeps that release on git branches named `2.0`: Walnascar, BitBake 2.12, and Qt 5. Layers match [`prepare-build.sh` on 2.0](https://github.com/AsteroidOS/asteroid/blob/2.0/prepare-build.sh): `meta-qt5`, `oe-core`, `meta-asteroid`, `meta-asteroid-community`, `meta-smartwatch`, `meta-smartphone`, and `meta-openembedded`. `aurora`, `eos`, `seluna`, `solios`, and `medaka` exist on nightly only.
@@ -90,6 +92,8 @@ The `hoki-nightly-patched` image incorporates community hardware enablement for 
 
 ## Quick start
 
+### Physical Watch Images
+
 ```bash
 nix build github:mio-19/asteroidix#hoki-nightly-official-img
 nix build github:mio-19/asteroidix#hoki-nightly-patched-img
@@ -98,6 +102,18 @@ nix build github:mio-19/asteroidix#hoki-stable-patched-img
 
 nix build github:mio-19/asteroidix#aurora-nightly-official-img
 nix build github:mio-19/asteroidix#aurora-nightly-patched-img
+```
+
+### Emulator
+
+Run the AsteroidOS emulator with zero configuration (auto-downloads upstream nightly binaries if no local build is present, and wraps QEMU with Virgil3D acceleration):
+
+```bash
+# Launch the emulator
+nix run github:mio-19/asteroidix#emulator
+
+# Or build the emulator image locally
+nix build github:mio-19/asteroidix#emulator-nightly-patched-img
 ```
 
 `#hoki-official-img` and `#hoki-patched-img` are the nightly hoki pair. `#img` and `#hoki-img` alias nightly patched hoki, which includes Find phone.
@@ -224,6 +240,61 @@ nix run .#push-app -- --file path/to/asteroid-findphone_1.0-r0_armv7vehf-neon.ip
 ```
 
 The script transfers the package to `/tmp` and executes `opkg --force-reinstall install`, making the app immediately available on the watch.
+
+## Running the AsteroidOS emulator
+
+AsteroidOS provides official emulator support using QEMU with Virgil3D (`virglrenderer`) paravirtualized OpenGL acceleration. `asteroidix` makes running and testing in the emulator turnkey:
+
+### Quick launch
+
+```bash
+# Launch via Nix flake app
+nix run .#emulator
+# or directly via the helper script:
+./scripts/run-emulator.sh
+```
+
+- **Zero-setup discovery**: If no local build exists in `./result/images/`, `run-emulator` automatically downloads and caches the latest upstream AsteroidOS nightly emulator binaries (`bzImage-emulator.bin` and `asteroid-image-emulator.rootfs.ext4`) into `~/.cache/asteroidix/emulator/`.
+- **Local build priority**: If you built an emulator image locally (`nix build .#emulator-img`), it automatically detects and launches your compiled kernel and rootfs from `./result/images/`.
+
+### Options & flags
+
+```bash
+# Run in snapshot mode (disposable session; disk writes are not saved)
+nix run .#emulator -- --snapshot
+
+# Forward guest SSH to a custom host port (default is 2222)
+nix run .#emulator -- --port 2223
+
+# Force redownload of the latest upstream nightly image
+nix run .#emulator -- --fetch-nightly
+
+# Use a specific display backend (default: sdl,gl=on; alternative: gtk,gl=on)
+nix run .#emulator -- --display gtk,gl=on
+
+# Point to custom kernel and rootfs binaries
+nix run .#emulator -- --kernel ./path/to/bzImage.bin --rootfs ./path/to/rootfs.ext4
+```
+
+### SSH and app development on the emulator
+
+1. **SSH Connection**:
+   The emulator maps host port `2222` to guest port `22`. Connect directly:
+   ```bash
+   ssh -p 2222 ceres@localhost
+   # or as root:
+   ssh -p 2222 root@localhost
+   ```
+
+2. **Deploying apps to the emulator**:
+   Use `push-app` over SSH to install `.ipk` packages onto the running emulator:
+   ```bash
+   nix run .#push-app -- --target root@localhost --method ssh --package asteroid-findphone
+   ```
+
+> [!TIP]
+> - **Session Type**: Virgil3D hardware 3D acceleration works best in a **Wayland** session (`echo $XDG_SESSION_TYPE`).
+> - **KVM Acceleration**: The runner automatically checks for `/dev/kvm` and enables hardware virtualization when available.
 
 ## Source directories
 

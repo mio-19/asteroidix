@@ -117,6 +117,18 @@
               exec env REPO_ROOT="$PWD" ${./scripts/setup-watch-ssh.sh} "$@"
             '';
           };
+          runEmulator = pkgs.writeShellApplication {
+            name = "run-emulator";
+            runtimeInputs = with pkgs; [
+              coreutils
+              curl
+              findutils
+              qemu
+            ];
+            text = ''
+              exec env REPO_ROOT="$PWD" ${./scripts/run-emulator.sh} "$@"
+            '';
+          };
         in
         {
           update-prefetch-lock = {
@@ -134,6 +146,14 @@
           setup-watch-ssh = {
             type = "app";
             program = lib.getExe setupWatchSsh;
+          };
+          run-emulator = {
+            type = "app";
+            program = lib.getExe runEmulator;
+          };
+          emulator = {
+            type = "app";
+            program = lib.getExe runEmulator;
           };
         }
       );
