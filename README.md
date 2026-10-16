@@ -37,6 +37,7 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 **Patched** (`*-patched`) is the official configuration for that branch plus mio's Nix sandbox fixes in [`meta-asteroidix-local`](./meta-asteroidix-local). `nightly-patched` is the default, and it also includes [`meta-asteroidix-nightly`](./meta-asteroidix-nightly):
 
 - Find phone, on every nightly-patched machine: a launcher app that asks the paired phone to ring. See below.
+- Community applications on every nightly-patched machine: `unofficial-watchfaces`, `asteroid-blaster`, `asteroid-dodger`, `asteroid-health`, `asteroid-map`, `asteroid-qmltester`, `asteroid-skedaddle`, and `asteroid-weatherfetch`. See below.
 - Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), and Blood Oxygen (SpO2). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
 - Nix sandbox fixes, on every patched machine, nightly and stable:
@@ -89,6 +90,19 @@ The `hoki-nightly-patched` image incorporates community hardware enablement for 
     - Application controller (`SPO2Controller`): executes an active 20-second optical pulse oximetry measurement cycle, computes optical AC/DC ratio-of-ratios $R = \frac{(AC/DC)_{\text{red}}}{(AC/DC)_{\text{ir}}}$ with median filtering against motion artifacts, applies the empirical calibration model $\text{SpO}_2 = 110 - 25 \times R$, integrates with `QHrmSensor` for real-time pulse rate and off-wrist contact detection, persists readings to `QSettings`, and provides WHO hypoxemia classification (Normal $\ge 95\%$, Low $90-94\%$, Critical $<90\%$).
     - D-Bus Integration: registers `org.asteroidos.spo2` on the session bus for external synchronization and watchface integration.
     - Native QML UI (`OxygenMeter.qml`, `main.qml`): circular progress arc gauge, real-time pulsating heartbeat animation, dynamic AsteroidOS color theming, and touch controls.
+
+### Community applications
+
+Every nightly-patched image bundles the full suite of popular AsteroidOS community applications:
+
+- **`unofficial-watchfaces`**: The complete collection of 70+ community-created watchfaces for `asteroid-launcher`, bundled and installed into `/usr/share/asteroid-launcher/watchfaces/` alongside preview thumbnails and custom fonts.
+- **`asteroid-blaster`**: A tilt-controlled, arcade-style asteroid-shooting frenzy game for AsteroidOS smartwatches.
+- **`asteroid-dodger`**: A thrilling survival game where you tilt your watch to surf through an ever-denser asteroid field with combos, near-misses, and power-up potions.
+- **`asteroid-health`**: Step counter, heart rate monitor, and health tracking app with the `asteroid-sensorlogd` background logging daemon. Keeps health metrics strictly local without sending data to any third party.
+- **`asteroid-map`**: Offline-friendly map viewer designed specifically for small and circular smartwatch displays.
+- **`asteroid-qmltester`**: Development and testing utility allowing developers to quickly test and inspect QML designs directly on the watch.
+- **`asteroid-skedaddle`**: Outdoor exercise and running log app tracking distance, time, and heart rate with industry-standard GPX file export and eSpeak voice feedback.
+- **`asteroid-weatherfetch`**: Background and CLI utility to fetch online weather forecast data for the AsteroidOS Weather application.
 
 ## Quick start
 
