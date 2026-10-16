@@ -7,5 +7,4 @@ IMAGE_INSTALL:append = "${@' unofficial-watchfaces asteroid-blaster asteroid-dod
 # Hardware enablement for Fossil Gen 6 (hoki): wlan, gnss, spo2 (only on patched variant; speaker & mic are upstream in meta-smartwatch #357)
 IMAGE_INSTALL:append:hoki = "${@' linux-wlan-modules-hoki wlan-firmware-hoki gnss-service-hoki asteroid-spo2' if d.getVar('ASTEROIDIX_PATCHED') == '1' else ''}"
 
-# aurora, eos, solios, and seluna flashable boot artifacts
-do_image_complete[depends] += "${@bb.utils.contains_any('MACHINE', ['eos', 'solios', 'seluna'], 'aurora-boot-images:do_build', '', d)}"
+

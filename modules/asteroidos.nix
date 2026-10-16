@@ -20,9 +20,10 @@ in
   config = {
     asteroidos.supportedMachines = machines.${config.channel};
 
-    # Recipe and local.conf changes that upstream AsteroidOS does not ship.
-    localConf = lib.mkIf (config.flavor == "patched") (
-      lib.mkAfter ''
+    # Nix sandbox build compatibility for all variants.
+    # Recipe and local.conf customizations that upstream AsteroidOS does not ship.
+    localConf = lib.mkMerge [
+      (lib.mkAfter ''
         ASSUME_PROVIDED:remove = "virtual/crypt-native"
         CFLAGS:append:pn-libxcrypt-native = " -Wno-error"
         HOSTTOOLS:append = " convert"
@@ -31,10 +32,14 @@ in
         https://ftp.gnu.org/gnu/.* https://mirrors.kernel.org/gnu/ \
         http://ftp.gnu.org/gnu/.* https://mirrors.kernel.org/gnu/ \
         "
-        ASTEROIDIX_PATCHED = "1"
-        MACHINE_HAS_WLAN:hoki = "true"
-      ''
-    );
+      '')
+      (lib.mkIf (config.flavor == "patched") (
+        lib.mkAfter ''
+          ASTEROIDIX_PATCHED = "1"
+          MACHINE_HAS_WLAN:hoki = "true"
+        ''
+      ))
+    ];
 
     assertions = [
       {
@@ -47,57 +52,57 @@ in
       }
     ];
 
-    layerConfs =
+    layerConfs = [
+      "meta-asteroidix-sandbox"
+    ]
+    ++ lib.optionals (config.variant == "nightly-patched") [
+      "meta-asteroidix-custom"
+    ]
+    ++
       lib.optionals
         (
-          config.variant == "nightly-patched"
-          || (
-            config.channel == "nightly"
-            && lib.elem config.machine [
-              "eos"
-              "seluna"
-              "solios"
-            ]
-          )
+          config.channel == "nightly"
+          && lib.elem config.machine [
+            "eos"
+            "seluna"
+            "solios"
+          ]
         )
         [
-          "meta-asteroidix-nightly"
+          "meta-asteroidix-bsp"
         ]
-      ++ lib.optionals (config.flavor == "patched") [
-        "meta-asteroidix-local"
-      ]
-      ++ (
-        if config.channel == "stable" then
-          [
-            "meta-qt5"
-            "oe-core/meta"
-            "meta-asteroid"
-            "meta-asteroid-community"
-            "meta-openembedded/meta-oe"
-            "meta-openembedded/meta-multimedia"
-            "meta-openembedded/meta-gnome"
-            "meta-openembedded/meta-networking"
-            "meta-smartphone/meta-android"
-            "meta-openembedded/meta-python"
-            "meta-openembedded/meta-filesystems"
-          ]
-        else
-          [
-            "meta-qt6"
-            "oe-core/meta"
-            "meta-asteroid"
-            "meta-asteroid-community"
-            "meta-openembedded/meta-oe"
-            "meta-openembedded/meta-multimedia"
-            "meta-openembedded/meta-gnome"
-            "meta-openembedded/meta-networking"
-            "meta-smartphone/meta-android"
-            "meta-openembedded/meta-python"
-            "meta-openembedded/meta-filesystems"
-            "meta-clang"
-            "meta-virtualization"
-          ]
-      );
+    ++ (
+      if config.channel == "stable" then
+        [
+          "meta-qt5"
+          "oe-core/meta"
+          "meta-asteroid"
+          "meta-asteroid-community"
+          "meta-openembedded/meta-oe"
+          "meta-openembedded/meta-multimedia"
+          "meta-openembedded/meta-gnome"
+          "meta-openembedded/meta-networking"
+          "meta-smartphone/meta-android"
+          "meta-openembedded/meta-python"
+          "meta-openembedded/meta-filesystems"
+        ]
+      else
+        [
+          "meta-qt6"
+          "oe-core/meta"
+          "meta-asteroid"
+          "meta-asteroid-community"
+          "meta-openembedded/meta-oe"
+          "meta-openembedded/meta-multimedia"
+          "meta-openembedded/meta-gnome"
+          "meta-openembedded/meta-networking"
+          "meta-smartphone/meta-android"
+          "meta-openembedded/meta-python"
+          "meta-openembedded/meta-filesystems"
+          "meta-clang"
+          "meta-virtualization"
+        ]
+    );
 
     envPackages = with pkgs; [
       bash
@@ -137,49 +142,51 @@ in
       zstd
     ];
 
-    source.dirs =
-      lib.optionalAttrs (config.flavor == "patched") {
-        meta-asteroidix-local = {
-          relpath = "src/meta-asteroidix-local";
-          src = ../meta-asteroidix-local;
-        };
-      }
-      //
-        lib.optionalAttrs
-          (
-            config.variant == "nightly-patched"
-            || (
-              config.channel == "nightly"
-              && lib.elem config.machine [
-                "eos"
-                "seluna"
-                "solios"
-              ]
-            )
-          )
-          {
-            meta-asteroidix-nightly = {
-              relpath = "src/meta-asteroidix-nightly";
-              src = ../meta-asteroidix-nightly;
-            };
+    source.dirs = {
+      meta-asteroidix-sandbox = {
+        relpath = "src/meta-asteroidix-sandbox";
+        src = ../meta-asteroidix-sandbox;
+      };
+    }
+    // lib.optionalAttrs (config.variant == "nightly-patched") {
+      meta-asteroidix-custom = {
+        relpath = "src/meta-asteroidix-custom";
+        src = ../meta-asteroidix-custom;
+      };
+    }
+    //
+      lib.optionalAttrs
+        (
+          config.channel == "nightly"
+          && lib.elem config.machine [
+            "eos"
+            "seluna"
+            "solios"
+          ]
+        )
+        {
+          meta-asteroidix-bsp = {
+            relpath = "src/meta-asteroidix-bsp";
+            src = ../meta-asteroidix-bsp;
+          };
+        }
+    // lib.mapAttrs (_: layer: {
+      relpath = layer.relpath;
+      src =
+        if layer ? url then
+          pkgs.fetchgit {
+            inherit (layer) url rev hash;
+            fetchSubmodules = false;
           }
-      // lib.mapAttrs (_: layer: {
-        relpath = layer.relpath;
-        src =
-          if layer ? url then
-            pkgs.fetchgit {
-              inherit (layer) url rev hash;
-              fetchSubmodules = false;
-            }
-          else
-            pkgs.fetchFromGitHub {
-              inherit (layer)
-                owner
-                repo
-                rev
-                hash
-                ;
-            };
-      }) layers;
+        else
+          pkgs.fetchFromGitHub {
+            inherit (layer)
+              owner
+              repo
+              rev
+              hash
+              ;
+          };
+    }) layers;
   };
 }

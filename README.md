@@ -32,9 +32,9 @@ DISTRO = "asteroid"
 PACKAGE_CLASSES = "package_ipk"
 ```
 
-The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`, and `CONNECTIVITY_CHECK_URIS = ""` so BitBake can run offline against the prefetch mirror. Official uses only the upstream layers for its branch.
+The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`, and `CONNECTIVITY_CHECK_URIS = ""` so BitBake can run offline against the prefetch mirror. Official uses upstream layers plus [`meta-asteroidix-sandbox`](./meta-asteroidix-sandbox) for unprivileged Nix sandbox compatibility (shadow, util-linux, perl), without custom apps or out-of-tree patches.
 
-**Patched** (`*-patched`) is the official configuration for that branch plus mio's Nix sandbox fixes in [`meta-asteroidix-local`](./meta-asteroidix-local). `nightly-patched` is the default, and it also includes [`meta-asteroidix-nightly`](./meta-asteroidix-nightly):
+**Patched** (`*-patched`) is the official configuration plus our custom applications, community fixes, and hardware enablement in [`meta-asteroidix-custom`](./meta-asteroidix-custom) (and [`meta-asteroidix-bsp`](./meta-asteroidix-bsp) for unofficial targets `eos`, `solios`, `seluna`). `nightly-patched` is the default:
 
 - Find phone, on every nightly-patched machine: a launcher app that asks the paired phone to ring. See below.
 - Community applications on every nightly-patched machine: `unofficial-watchfaces`, `asteroid-blaster`, `asteroid-dodger`, `asteroid-health`, `asteroid-map`, `asteroid-qmltester`, `asteroid-skedaddle`, and `asteroid-weatherfetch`. See below.
@@ -84,7 +84,7 @@ The `hoki-nightly-patched` image incorporates community hardware enablement for 
 
 - **Blood Oxygen Saturation (SpO2)**:
   - Upstream hardware status: [AsteroidOS Fossil Gen 6 Wiki / Status](https://asteroidos.org/watches/hoki/) lists `Blood Oxygen` as unsupported/bad because AsteroidOS historically possessed no SpO2 software subsystem or pulse oximetry app.
-  - Implements the complete native AsteroidOS SpO2 software subsystem and application `asteroid-spo2` in `meta-asteroidix-nightly`:
+  - Implements the complete native AsteroidOS SpO2 software subsystem and application `asteroid-spo2` in `meta-asteroidix-custom`:
     - Application controller (`SPO2Controller`): executes an active 20-second optical pulse oximetry measurement cycle, computes optical AC/DC ratio-of-ratios $R = \frac{(AC/DC)_{\text{red}}}{(AC/DC)_{\text{ir}}}$ with median filtering against motion artifacts, applies the empirical calibration model $\text{SpO}_2 = 110 - 25 \times R$, integrates with `QHrmSensor` for real-time pulse rate and off-wrist contact detection, persists readings to `QSettings`, and provides WHO hypoxemia classification (Normal $\ge 95\%$, Low $90-94\%$, Critical $<90\%$).
     - D-Bus Integration: registers `org.asteroidos.spo2` on the session bus for external synchronization and watchface integration.
     - Native QML UI (`OxygenMeter.qml`, `main.qml`): circular progress arc gauge, real-time pulsating heartbeat animation, dynamic AsteroidOS color theming, and touch controls.
@@ -192,7 +192,7 @@ Nightly pins are AsteroidOS 3.0-nightly: Whinlatter / BitBake 2.16 / Qt 6.11. St
 
 [`.github/workflows/update-locks.yml`](./.github/workflows/update-locks.yml) runs those two commands every day at 16:00 UTC and pushes to `main` when a pin moves. If a layer bump clears prefetch entries, the workflow regenerates the entries that were already in [`prefetch-lock.json`](./prefetch-lock.json). New machines still need `update-prefetch-lock` once before an offline build. You can run the same job from the Actions tab.
 
-Upstream `meta-asteroid` supplies application source revisions. `meta-asteroidix-local` is part of both patched builds. `meta-asteroidix-nightly` is part of `nightly-patched`. GitHub layers use archive fetchers; nightly Qt `meta-qt6` and Yocto `meta-virtualization` use their upstream Git URLs.
+Upstream `meta-asteroid` supplies application source revisions. `meta-asteroidix-sandbox` provides unprivileged Nix sandbox compatibility for builds. `meta-asteroidix-custom` provides custom apps and hardware tweaks on `nightly-patched`. `meta-asteroidix-bsp` supplies unofficial smartwatch BSP layers. GitHub layers use archive fetchers; nightly Qt `meta-qt6` and Yocto `meta-virtualization` use their upstream Git URLs.
 
 Changing a branch's layer revisions clears that branch's prefetch locks. Regenerate hashes for each variant and device you build:
 
