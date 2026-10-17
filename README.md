@@ -39,6 +39,7 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 - Find phone, on every nightly-patched machine: a launcher app that asks the paired phone to ring. See below.
 - Community applications on every nightly-patched machine: `unofficial-watchfaces`, `asteroid-blaster`, `asteroid-dodger`, `asteroid-health`, `asteroid-map`, `asteroid-qmltester`, `asteroid-skedaddle`, and `asteroid-weatherfetch`. See below.
 - Smartwatch Web Browser (`asteroid-browser`): a lightweight native Qt 6 rich-text web browser app designed for watch screens (32-bit ARM userspace across all watch targets including hoki, aurora, eos, solios, and seluna).
+- GUI Over-The-Air Update (`asteroid-ota` & `asteroid-otad`): an in-place graphical OTA updater that updates AsteroidOS packages with zero data loss, preserving user settings, paired devices, watchfaces, and alarms in `/home/ceres`. Accessible as a dedicated smartwatch app and directly in Settings > System Update.
 - Tack Metronome (`asteroid-tack`): a precision metronome application for AsteroidOS ported from the Wear OS metronome [Tack Android](https://github.com/patzly/tack-android) by Patrick Zedler.
 - BeatFork (`asteroid-beatfork`): a 3-in-1 audio utility for AsteroidOS featuring tap BPM detection with precision timing decay, a high-performance metronome with ngfd feedback and pulse ring animations, and a live sine synthesis tuning fork (G4 to Bb4).
 - 2048 Game (`asteroid-2048`): the classic sliding-tile puzzle game ported to Qt 6 for AsteroidOS smartwatches, featuring touch swipe gestures, persistent best scores, and responsive circular/square screen geometry.
@@ -119,6 +120,21 @@ The `hoki-nightly-patched` image incorporates community hardware enablement for 
   - **Memory Allocator Hardening**: enables `CONFIG_SLAB_FREELIST_HARDENED=y` (freelist pointer obfuscation and canaries against heap spraying), `CONFIG_SLAB_FREELIST_RANDOM=y` (freelist allocation randomization), `CONFIG_HARDENED_USERCOPY=y` (strict bounds verification on `copy_to_user` and `copy_from_user`), `CONFIG_BUG_ON_DATA_CORRUPTION=y`, and zero-on-free page sanitization (`CONFIG_PAGE_SANITIZE=y`) to defeat use-after-free exploits.
   - **Exploit Mitigations**: enables `CONFIG_REFCOUNT_FULL=y` (overflow protection on reference counters), `CONFIG_FORTIFY_SOURCE=y` (buffer boundary checking), `CONFIG_SECURITY_DMESG_RESTRICT=y` (blocks unprivileged `dmesg` access to prevent kernel address leaks), `CONFIG_SECURITY_TIOCSTI_RESTRICT=y` (blocks unprivileged terminal keystroke injection), and `CONFIG_SECURITY_PERF_EVENTS_RESTRICT=y` (restricts perf event profiling).
   - **Attack Surface Reduction**: disables unprivileged eBPF by default (`CONFIG_BPF_UNPRIV_DEFAULT_OFF=y`), enables BPF JIT hardening, enforces strict `/dev/mem` access restrictions (`CONFIG_STRICT_DEVMEM=y`, `CONFIG_IO_STRICT_DEVMEM=y`), and incorporates runtime entropy randomization for `brk`, stack, and argument blocks.
+
+### GUI Over-The-Air (OTA) Updates Without Data Loss
+
+Historically, AsteroidOS watches lacked stock internet connectivity, leading users to upgrade by completely reflashing system images and consequently wiping personal settings, alarms, and paired device configurations. With Wi-Fi enablement and Bluetooth Internet Sharing (PAN) now available on AsteroidOS watches, `asteroid-ota` provides a native, smartwatch-optimized graphical OTA upgrade workflow with zero data loss:
+
+- **Zero Data Loss Guarantee**: Updates are applied in-place using AsteroidOS's OPKG package management subsystem (`opkg update && opkg upgrade`). User data, DConf configurations, Bluetooth pairing keys, alarms, health stats, and custom watchfaces stored in `/home/ceres` and `/var/lib/` are preserved intact.
+- **Privileged System Daemon (`asteroid-otad`)**: Runs in the background as `root` via systemd (`asteroid-otad.service`), exposing an unprivileged-accessible D-Bus interface `org.asteroidos.OTA1` on the System Bus.
+- **Safety Pre-flight Checks**:
+  - **Internet Connectivity**: Verifies active routing and DNS via Wi-Fi (`wlan0`), Bluetooth PAN tethering (`bnep0`), or USB (`rndis0`).
+  - **System Clock & SSL Validation**: Validates that system time is current (preventing `SSL peer certificate or SSH remote key was not OK` errors documented in the AsteroidOS wiki) and triggers `systemd-timesyncd` synchronization if necessary.
+  - **Battery Safeguard**: Prohibits upgrading when battery capacity is under 20% unless connected to a charger.
+  - **Storage Verification**: Ensures at least 80MB of free space is available on the root filesystem before downloading packages.
+- **Smartwatch UI (`asteroid-ota` & `asteroid-settings`)**:
+  - Dedicated standalone app: responsive QML interface featuring radial background gradients, round/square screen layout adaptation, live download/installation progress tracking, Remorse countdown timers, and clean reboot prompts via `systemd-login1`.
+  - Settings Integration: accessible directly within AsteroidOS Settings under **Settings > System Update**.
 
 ### Community applications
 

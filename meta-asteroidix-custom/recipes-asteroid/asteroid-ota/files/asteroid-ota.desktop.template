@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Categories=Applications;System;
+Exec=asteroid-ota
+Icon=ios-sync
+X-Asteroid-Center-Color=#1b4d89
+X-Asteroid-Outer-Color=#0a1e38

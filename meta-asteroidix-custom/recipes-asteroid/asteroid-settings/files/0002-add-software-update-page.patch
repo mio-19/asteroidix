@@ -1,0 +1,320 @@
+From d99fbc87a213e2f5c71a3962b322a019488a0b01 Mon Sep 17 00:00:00 2001
+From: Asteroidix <dev@asteroidix.org>
+Date: Sat, 17 Oct 2026 23:30:00 +1100
+Subject: [PATCH] Add System Update page to Settings
+
+Adds an interactive OTA System Update page to AsteroidOS Settings,
+communicating directly with org.asteroidos.OTA1 on the System D-Bus
+to allow checking and installing updates without data loss.
+
+Upstream-Status: Inappropriate [asteroidix feature]
+---
+ src/CMakeLists.txt       |   1 +
+ src/qml/UpdatePage.qml   | 245 +++++++++++++++++++++++++++++++++++++++
+ src/qml/main.qml         |   9 ++
+ 3 files changed, 255 insertions(+)
+ create mode 100644 src/qml/UpdatePage.qml
+
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 759f2a1..3524bca 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -48,6 +48,7 @@ asteroid_app_qml_module(asteroid-settings
+ 	qml/USBPage.qml
+ 	qml/PowerPage.qml
+ 	qml/AboutPage.qml
++	qml/UpdatePage.qml
+ )
+ message(${CMAKE_CURRENT_BINARY_DIR})
+ target_include_directories(
+diff --git a/src/qml/UpdatePage.qml b/src/qml/UpdatePage.qml
+new file mode 100644
+index 0000000..f92415c
+--- /dev/null
++++ b/src/qml/UpdatePage.qml
+@@ -0,0 +1,245 @@
++/*
++ * Copyright (C) 2026 - Asteroidix
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ */
++
++import QtQuick
++import org.asteroid.controls
++import org.asteroid.utils
++import Nemo.DBus
++
++Item {
++    id: root
++    property int depth
++    property var pop
++
++    property string otaState: "idle"
++    property string statusMessage: "Check for updates"
++    property int progressVal: 0
++    property string currentStep: ""
++    property int upgradableCount: 0
++    property bool networkAvailable: false
++    property string networkType: "None"
++    property int batteryLevel: 100
++    property bool isCharging: true
++
++    DBusInterface {
++        id: otaDBus
++        bus: DBus.SystemBus
++        service: "org.asteroidos.OTA1"
++        path: "/org/asteroidos/OTA1"
++        iface: "org.asteroidos.OTA1"
++        signalsEnabled: true
++
++        function refresh() {
++            typedCall("GetState", [], function(val) { otaState = val })
++            typedCall("GetStatusMessage", [], function(val) { statusMessage = val })
++            typedCall("GetProgress", [], function(val) { progressVal = val })
++            typedCall("GetCurrentStep", [], function(val) { currentStep = val })
++            typedCall("GetUpgradableCount", [], function(val) { upgradableCount = val })
++            typedCall("GetBatteryLevel", [], function(val) { batteryLevel = val })
++            typedCall("IsCharging", [], function(val) { isCharging = val })
++            typedCall("IsNetworkAvailable", [], function(val) { networkAvailable = val })
++            typedCall("GetNetworkType", [], function(val) { networkType = val })
++        }
++    }
++
++    DBusSignal {
++        bus: DBus.SystemBus
++        service: "org.asteroidos.OTA1"
++        path: "/org/asteroidos/OTA1"
++        iface: "org.asteroidos.OTA1"
++        signal: "stateChanged"
++        onTriggered: {
++            otaState = arguments[0]
++        }
++    }
++
++    DBusSignal {
++        bus: DBus.SystemBus
++        service: "org.asteroidos.OTA1"
++        path: "/org/asteroidos/OTA1"
++        iface: "org.asteroidos.OTA1"
++        signal: "statusMessageChanged"
++        onTriggered: {
++            statusMessage = arguments[0]
++        }
++    }
++
++    DBusSignal {
++        bus: DBus.SystemBus
++        service: "org.asteroidos.OTA1"
++        path: "/org/asteroidos/OTA1"
++        iface: "org.asteroidos.OTA1"
++        signal: "progressChanged"
++        onTriggered: {
++            progressVal = arguments[0]
++            currentStep = arguments[1]
++        }
++    }
++
++    DBusSignal {
++        bus: DBus.SystemBus
++        service: "org.asteroidos.OTA1"
++        path: "/org/asteroidos/OTA1"
++        iface: "org.asteroidos.OTA1"
++        signal: "checkFinished"
++        onTriggered: {
++            upgradableCount = arguments[0]
++            otaDBus.refresh()
++        }
++    }
++
++    DBusSignal {
++        bus: DBus.SystemBus
++        service: "org.asteroidos.OTA1"
++        path: "/org/asteroidos/OTA1"
++        iface: "org.asteroidos.OTA1"
++        signal: "upgradeFinished"
++        onTriggered: {
++            otaDBus.refresh()
++        }
++    }
++
++    Component.onCompleted: {
++        otaDBus.refresh()
++    }
++
++    Flickable {
++        anchors.fill: parent
++        contentHeight: Math.max(parent.height, col.implicitHeight + Dims.h(10))
++        boundsBehavior: Flickable.DragOverBounds
++        flickableDirection: Flickable.VerticalFlick
++
++        Column {
++            id: col
++            width: parent.width
++            spacing: Dims.h(2)
++
++            Item {
++                width: parent.width
++                height: DeviceSpecs.hasRoundScreen ? Dims.h(7) : Dims.h(3)
++            }
++
++            Item {
++                width: parent.width
++                height: Dims.h(16)
++
++                Rectangle {
++                    anchors.centerIn: parent
++                    width: Dims.w(15)
++                    height: width
++                    radius: width / 2
++                    color: "white"
++                    opacity: 0.15
++                }
++
++                Icon {
++                    anchors.centerIn: parent
++                    width: Dims.w(11)
++                    height: width
++                    name: {
++                        if (otaState === "checking" || otaState === "upgrading") return "ios-sync"
++                        if (otaState === "available") return "ios-cloud-download"
++                        if (otaState === "up_to_date" || otaState === "reboot_required") return "ios-checkmark-circle"
++                        if (otaState === "error") return "ios-alert"
++                        return "ios-sync"
++                    }
++                    RotationAnimation on rotation {
++                        running: otaState === "checking" || otaState === "upgrading"
++                        loops: Animation.Infinite
++                        from: 0
++                        to: 360
++                        duration: 1800
++                    }
++                }
++            }
++
++            Label {
++                anchors.horizontalCenter: parent.horizontalCenter
++                width: parent.width * 0.85
++                horizontalAlignment: Text.AlignHCenter
++                font.pixelSize: Dims.h(4.8)
++                font.bold: true
++                wrapMode: Text.WordWrap
++                text: {
++                    if (otaState === "checking") return "Checking Updates"
++                    if (otaState === "up_to_date") return "System Up to Date"
++                    if (otaState === "available") return upgradableCount + " Updates Ready"
++                    if (otaState === "upgrading") return "Upgrading " + progressVal + "%"
++                    if (otaState === "reboot_required") return "Upgrade Complete!"
++                    if (otaState === "error") return "Update Paused"
++                    return "System Update"
++                }
++            }
++
++            Label {
++                anchors.horizontalCenter: parent.horizontalCenter
++                width: parent.width * 0.82
++                horizontalAlignment: Text.AlignHCenter
++                font.pixelSize: Dims.h(3.5)
++                opacity: 0.85
++                wrapMode: Text.WordWrap
++                text: statusMessage
++            }
++
++            // Progress Bar
++            Item {
++                visible: otaState === "upgrading" || otaState === "checking"
++                width: parent.width
++                height: Dims.h(3.5)
++
++                Rectangle {
++                    anchors.centerIn: parent
++                    width: parent.width * 0.75
++                    height: Dims.h(1.6)
++                    radius: height / 2
++                    color: "white"
++                    opacity: 0.2
++
++                    Rectangle {
++                        anchors.left: parent.left
++                        anchors.top: parent.top
++                        anchors.bottom: parent.bottom
++                        width: parent.width * (progressVal / 100.0)
++                        radius: height / 2
++                        color: "#2196F3"
++                    }
++                }
++            }
++
++            Item {
++                width: parent.width
++                height: Dims.h(11)
++
++                Button {
++                    anchors.centerIn: parent
++                    width: parent.width * 0.75
++                    height: Dims.h(7.5)
++                    visible: otaState !== "upgrading" && otaState !== "checking"
++                    text: {
++                        if (otaState === "available") return "Install Update"
++                        if (otaState === "up_to_date") return "Check Again"
++                        if (otaState === "reboot_required") return "Reboot Now"
++                        if (otaState === "error") return "Retry"
++                        return "Check for Updates"
++                    }
++                    onClicked: {
++                        if (otaState === "available") {
++                            remorse.action = "Installing update"
++                            remorse.callback = function() { otaDBus.typedCall("StartUpgrade", []) }
++                            remorse.start()
++                        } else if (otaState === "reboot_required") {
++                            remorse.action = "Rebooting watch"
++                            remorse.callback = function() { otaDBus.typedCall("Reboot", []) }
++                            remorse.start()
++                        } else {
++                            otaDBus.typedCall("CheckForUpdates", [])
++                        }
++                    }
++                }
++            }
++        }
++    }
++
++    RemorseTimer {
++        id: remorse
++        duration: 3500
++        cancelText: "Tap to cancel"
++        property var callback: null
++        onTriggered: {
++            if (callback) callback()
++        }
++    }
++}
+diff --git a/src/qml/main.qml b/src/qml/main.qml
+index e86d1a2..a7318bc 100644
+--- a/src/qml/main.qml
++++ b/src/qml/main.qml
+@@ -52,6 +52,7 @@ Application {
+     Component { id: usbLayer;                   USBPage        { } }
+     Component { id: powerLayer;                 PowerPage      { } }
+     Component { id: aboutLayer;                 AboutPage      { } }
++    Component { id: updateLayer;                UpdatePage     { } }
+ 
+     TiltToWake { id: tiltToWake }
+ 
+@@ -165,6 +166,14 @@ Application {
+                     iconName: "ios-power-outline"
+                     onClicked: layerStack.push(powerLayer)
+                 }
++                ListItem {
++                    //% "System Update"
++                    title: qsTrId("id-update-page")
++                    iconName: "ios-sync"
++                    onClicked: layerStack.push(updateLayer)
++                }
+                 ListItem {
+                     //% "About"
+                     title: qsTrId("id-about-page")
+-- 
+2.55.0

@@ -1,0 +1,13 @@
+[Unit]
+Description=AsteroidOS OTA System Update Daemon
+After=network.target dbus.service
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/libexec/asteroid-otad
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
