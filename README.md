@@ -59,6 +59,19 @@ Every nightly-patched image installs `asteroid-findphone` and patches `asteroid-
 
 The watch sends `0` again after 30 seconds. A companion rings the phone by subscribing to that characteristic and playing a ringtone while the value is `1`. Stock AsteroidOS Sync does not subscribe yet, so the phone stays quiet until the companion implements this.
 
+### Companion App Bridge (Gadgetbridge & Android Inter-App IPC)
+
+The nightly-patched builds introduce a generic, bidirectional companion communication bridge in `asteroid-btsyncd`, enabling AsteroidOS apps (such as `asteroid-spo2` and `asteroid-map`) to communicate with companion apps (like Gadgetbridge) and external Android apps via Android Intent broadcasts:
+
+- **GATT Service**: `0000a071-0000-0000-0000-00A57E401D05`
+- **TX Characteristic (Watch $\rightarrow$ Companion)**: `0000a001-0000-0000-0000-00A57E401D05` (notify)
+- **RX Characteristic (Companion $\rightarrow$ Watch)**: `0000a002-0000-0000-0000-00A57E401D05` (write)
+- **D-Bus Interface**: `org.asteroidos.CompanionGateway` on session bus path `/org/asteroidos/CompanionGateway` (`org.asteroidos.CompanionGateway1`)
+  - Method: `SendMessage(QString appId, QString action, QByteArray payload)`
+  - Signal: `MessageReceived(QString appId, QString action, QByteArray payload)`
+
+On Android, Gadgetbridge exposes `nodomain.freeyourgadget.gadgetbridge.ACTION_SEND_TO_WATCH` and `ACTION_RECEIVE_FROM_WATCH` so third-party Android apps can exchange data with AsteroidOS using the drop-in [`AsteroidWatchBridge.kt`](./meta-asteroidix-custom/AsteroidWatchBridge.kt) helper.
+
 ### Fossil Gen 6 (hoki) hardware enablement
 
 The `hoki-nightly-patched` image incorporates community hardware enablement for the Fossil Gen 6 platform (DW13), based on hardware research, driver fixes, and testing by `pettcomputers`:

@@ -1,0 +1,292 @@
+From: Mio <mio@mio19.uk>
+Subject: [PATCH] Add generic Companion App Bridge GATT service
+
+Enables bidirectional communication between AsteroidOS apps and
+Android companion apps (such as Gadgetbridge) or third-party Android
+apps. Registers org.asteroidos.CompanionGateway on the session bus.
+
+Upstream-Status: Inappropriate [mio hoki patch]
+diff -Naur a/src/application.cpp b/src/application.cpp
+--- a/src/application.cpp	2026-10-17 19:40:00.000000000 +1100
++++ b/src/application.cpp	2026-10-17 19:40:10.000000000 +1100
+@@ -17,6 +17,7 @@
+ #include "screenshotservice.h"
+ #include "timeservice.h"
+ #include "findphoneservice.h"
++#include "appbridgeservice.h"
+ 
+ #include <QDBusMetaType>
+ 
+@@ -26,6 +27,7 @@
+     addService(new ScreenshotService(4, bus));
+     addService(new TimeService(5, bus));
+     addService(new FindPhoneService(6, bus));
++    addService(new AppBridgeService(7, bus));
+ 
+     qDBusRegisterMetaType<InterfaceList>();
+     qDBusRegisterMetaType<ManagedObjectList>();
+diff -Naur a/src/CMakeLists.txt b/src/CMakeLists.txt
+--- a/src/CMakeLists.txt	2026-10-17 19:40:00.000000000 +1100
++++ b/src/CMakeLists.txt	2026-10-17 19:40:10.000000000 +1100
+@@ -10,6 +10,7 @@
+ 	settime.cpp
+ 	timeservice.cpp
+ 	findphoneservice.cpp
++	appbridgeservice.cpp
+ 	service.cpp
+ 	characteristic.cpp
+ 	descriptor.cpp
+@@ -31,6 +32,7 @@
+ 	settime.h
+ 	timeservice.h
+ 	findphoneservice.h
++	appbridgeservice.h
+ 	service.h
+ 	characteristic.h
+ 	descriptor.h
+diff -Naur a/src/common.h b/src/common.h
+--- a/src/common.h	2026-10-17 19:40:00.000000000 +1100
++++ b/src/common.h	2026-10-17 19:40:10.000000000 +1100
+@@ -62,4 +62,12 @@
+ #define FINDPHONE_PATH         "/org/asteroidos/findphone"
+ #define FINDPHONE_IFACE        "org.asteroidos.findphone"
+ 
++#define APPBRIDGE_UUID         "0000a071-0000-0000-0000-00A57E401D05"
++#define APPBRIDGE_TX_UUID      "0000a001-0000-0000-0000-00A57E401D05"
++#define APPBRIDGE_RX_UUID      "0000a002-0000-0000-0000-00A57E401D05"
++
++#define APPBRIDGE_SERVICE_NAME "org.asteroidos.CompanionGateway"
++#define APPBRIDGE_PATH         "/org/asteroidos/CompanionGateway"
++#define APPBRIDGE_IFACE        "org.asteroidos.CompanionGateway1"
++
+ #endif // COMMON_H
+diff -Naur a/src/appbridgeservice.h b/src/appbridgeservice.h
+--- /dev/null	1970-01-01 10:00:00.000000000 +1000
++++ b/src/appbridgeservice.h	2026-10-17 19:40:10.000000000 +1100
+@@ -0,0 +1,81 @@
++/*
++ * Copyright (C) 2026 AsteroidOS
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ */
++
++#ifndef APPBRIDGESERVICE_H
++#define APPBRIDGESERVICE_H
++
++#include "service.h"
++
++class AppBridgeApi;
++
++class AppBridgeTxChrc : public Characteristic
++{
++    Q_OBJECT
++    Q_PROPERTY(QByteArray Value READ getValue NOTIFY valueChanged)
++
++public:
++    AppBridgeTxChrc(QDBusConnection bus, int index, Service *service);
++    void notifyPayload(const QByteArray &data);
++
++signals:
++    void valueChanged();
++
++private slots:
++    void emitPropertiesChanged();
++
++private:
++    QByteArray getValue() { return m_value; }
++    QByteArray m_value;
++
++public slots:
++    QByteArray ReadValue(QVariantMap options) override;
++    void StartNotify() override {}
++    void StopNotify() override {}
++};
++
++class AppBridgeRxChrc : public Characteristic
++{
++    Q_OBJECT
++
++public:
++    AppBridgeRxChrc(QDBusConnection bus, int index, Service *service, AppBridgeApi *api);
++
++public slots:
++    void WriteValue(const QByteArray &value, const QVariantMap &options) override;
++
++private:
++    AppBridgeApi *m_api;
++};
++
++class AppBridgeApi : public QObject
++{
++    Q_OBJECT
++    Q_CLASSINFO("D-Bus Interface", "org.asteroidos.CompanionGateway1")
++
++public:
++    explicit AppBridgeApi(AppBridgeTxChrc *tx, QObject *parent = nullptr);
++    void handleIncomingBytes(const QByteArray &raw);
++
++signals:
++    void MessageReceived(const QString &appId, const QString &action, const QByteArray &payload);
++
++public slots:
++    void SendMessage(const QString &appId, const QString &action, const QByteArray &payload);
++
++private:
++    AppBridgeTxChrc *m_tx;
++};
++
++class AppBridgeService : public Service
++{
++public:
++    explicit AppBridgeService(int index, QDBusConnection bus, QObject *parent = nullptr);
++};
++
++#endif // APPBRIDGESERVICE_H
+diff -Naur a/src/appbridgeservice.cpp b/src/appbridgeservice.cpp
+--- /dev/null	1970-01-01 10:00:00.000000000 +1000
++++ b/src/appbridgeservice.cpp	2026-10-17 19:40:10.000000000 +1100
+@@ -0,0 +1,126 @@
++/*
++ * Copyright (C) 2026 AsteroidOS
++ *
++ * This program is free software: you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation, either version 3 of the License, or
++ * (at your option) any later version.
++ */
++
++#include "appbridgeservice.h"
++#include "common.h"
++
++#include <QDBusConnection>
++#include <QDBusError>
++#include <QDBusMessage>
++#include <QDebug>
++
++AppBridgeTxChrc::AppBridgeTxChrc(QDBusConnection bus, int index, Service *service)
++    : Characteristic(bus, index, APPBRIDGE_TX_UUID, {"encrypt-authenticated-read", "encrypt-authenticated-notify"}, service)
++{
++    connect(this, SIGNAL(valueChanged()), this, SLOT(emitPropertiesChanged()));
++}
++
++void AppBridgeTxChrc::notifyPayload(const QByteArray &data)
++{
++    m_value = data;
++    emit valueChanged();
++}
++
++QByteArray AppBridgeTxChrc::ReadValue(QVariantMap)
++{
++    return m_value;
++}
++
++void AppBridgeTxChrc::emitPropertiesChanged()
++{
++    QDBusConnection connection = QDBusConnection::systemBus();
++    QDBusMessage message = QDBusMessage::createSignal(getPath().path(),
++                                                      "org.freedesktop.DBus.Properties",
++                                                      "PropertiesChanged");
++
++    QVariantMap changedProperties;
++    changedProperties[QStringLiteral("Value")] = QVariant(m_value);
++
++    QList<QVariant> arguments;
++    arguments << QVariant(GATT_CHRC_IFACE) << QVariant(changedProperties) << QVariant(QStringList());
++    message.setArguments(arguments);
++
++    if (!connection.send(message))
++        qDebug() << "Failed to send app bridge notification";
++}
++
++AppBridgeRxChrc::AppBridgeRxChrc(QDBusConnection bus, int index, Service *service, AppBridgeApi *api)
++    : Characteristic(bus, index, APPBRIDGE_RX_UUID, {"encrypt-authenticated-write"}, service),
++      m_api(api)
++{
++}
++
++void AppBridgeRxChrc::WriteValue(const QByteArray &value, const QVariantMap &)
++{
++    if (m_api) {
++        m_api->handleIncomingBytes(value);
++    }
++}
++
++AppBridgeApi::AppBridgeApi(AppBridgeTxChrc *tx, QObject *parent)
++    : QObject(parent), m_tx(tx)
++{
++}
++
++void AppBridgeApi::SendMessage(const QString &appId, const QString &action, const QByteArray &payload)
++{
++    QByteArray appIdBytes = appId.toUtf8();
++    QByteArray actBytes = action.toUtf8();
++
++    if (appIdBytes.size() > 255 || actBytes.size() > 255) {
++        qWarning() << "AppId or Action length exceeds 255 bytes";
++        return;
++    }
++
++    QByteArray packet;
++    packet.reserve(3 + appIdBytes.size() + actBytes.size() + payload.size());
++    packet.append(static_cast<char>(0xA0));
++    packet.append(static_cast<char>(appIdBytes.size()));
++    packet.append(appIdBytes);
++    packet.append(static_cast<char>(actBytes.size()));
++    packet.append(actBytes);
++    packet.append(payload);
++
++    m_tx->notifyPayload(packet);
++}
++
++void AppBridgeApi::handleIncomingBytes(const QByteArray &raw)
++{
++    if (raw.size() < 3)
++        return;
++
++    if (static_cast<quint8>(raw.at(0)) != 0xA0) {
++        qWarning() << "AppBridge: invalid magic byte";
++        return;
++    }
++
++    int offset = 1;
++    quint8 appIdLen = static_cast<quint8>(raw.at(offset++));
++    if (raw.size() < offset + appIdLen + 1)
++        return;
++
++    QString appId = QString::fromUtf8(raw.mid(offset, appIdLen));
++    offset += appIdLen;
++
++    quint8 actLen = static_cast<quint8>(raw.at(offset++));
++    if (raw.size() < offset + actLen)
++        return;
++
++    QString action = QString::fromUtf8(raw.mid(offset, actLen));
++    offset += actLen;
++
++    QByteArray payload = raw.mid(offset);
++
++    emit MessageReceived(appId, action, payload);
++}
++
++AppBridgeService::AppBridgeService(int index, QDBusConnection bus, QObject *parent)
++    : Service(bus, index, APPBRIDGE_UUID, parent)
++{
++    m_tx = new AppBridgeTxChrc(bus, 0, this);
++    addCharacteristic(m_tx);
++
++    m_api = new AppBridgeApi(m_tx, this);
++    m_rx = new AppBridgeRxChrc(bus, 1, this, m_api);
++    addCharacteristic(m_rx);
++
++    QDBusConnection session = QDBusConnection::sessionBus();
++    if (!session.registerService(QStringLiteral(APPBRIDGE_SERVICE_NAME)))
++        qWarning() << "app bridge service name:" << session.lastError().message();
++    if (!session.registerObject(QStringLiteral(APPBRIDGE_PATH), m_api,
++                                QDBusConnection::ExportAllSlots
++                                    | QDBusConnection::ExportAllProperties
++                                    | QDBusConnection::ExportAllSignals))
++        qWarning() << "app bridge object:" << session.lastError().message();
++}

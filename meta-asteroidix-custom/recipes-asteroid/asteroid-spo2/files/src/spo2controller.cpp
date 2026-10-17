@@ -2,6 +2,8 @@
 
 #include <QDBusConnection>
 #include <QDBusMessage>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QRandomGenerator>
 #include <algorithm>
 
@@ -252,6 +254,25 @@ void SPO2Controller::finalizeMeasurement()
     updateClassification(m_spo2);
 
     saveSettings(m_spo2, m_bpm);
+
+    // Sync measurement to connected companion (Gadgetbridge / Android)
+    QDBusMessage msg = QDBusMessage::createMethodCall(
+        QStringLiteral("org.asteroidos.CompanionGateway"),
+        QStringLiteral("/org/asteroidos/CompanionGateway"),
+        QStringLiteral("org.asteroidos.CompanionGateway1"),
+        QStringLiteral("SendMessage")
+    );
+    QJsonObject obj;
+    obj.insert(QStringLiteral("spo2"), m_spo2);
+    obj.insert(QStringLiteral("bpm"), m_bpm);
+    obj.insert(QStringLiteral("timestamp"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate));
+    QJsonDocument doc(obj);
+    QList<QVariant> args;
+    args << QVariant(QStringLiteral("org.asteroidos.spo2"))
+         << QVariant(QStringLiteral("measurement"))
+         << QVariant(doc.toJson(QJsonDocument::Compact));
+    msg.setArguments(args);
+    QDBusConnection::sessionBus().send(msg);
 
     emit spo2Changed();
     emit bpmChanged();
