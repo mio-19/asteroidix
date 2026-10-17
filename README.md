@@ -43,7 +43,7 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 - BeatFork (`asteroid-beatfork`): a 3-in-1 audio utility for AsteroidOS featuring tap BPM detection with precision timing decay, a high-performance metronome with ngfd feedback and pulse ring animations, and a live sine synthesis tuning fork (G4 to Bb4).
 - 2048 Game (`asteroid-2048`): the classic sliding-tile puzzle game ported to Qt 6 for AsteroidOS smartwatches, featuring touch swipe gestures, persistent best scores, and responsive circular/square screen geometry.
 - Ladybird Browser (`ladybird`): standalone modern web browser engine ported to AsteroidOS with 32-bit ARM userspace support (via LibGC cage scaling and AK 32-bit support).
-- Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), Blood Oxygen (SpO2), and Bluetooth Internet Sharing (PAN/tethering). See below.
+- Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), Blood Oxygen (SpO2), Bluetooth Internet Sharing (PAN/tethering), and kernel security hardening (GrapheneOS linux-hardened exploit mitigations). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
 - Nix sandbox compatibility (across all builds):
   - `perl`: fall back to `cpp -dM` when the Errno header scan finds nothing
@@ -112,6 +112,12 @@ The `hoki-nightly-patched` image incorporates community hardware enablement for 
   - Kernel enablement: adds `CONFIG_BT_BREDR=y`, `CONFIG_BT_BNEP=y` (with multicast & protocol filters), `CONFIG_BT_RFCOMM=y`, and `CONFIG_BT_HIDP=y` to `linux-hoki`, allowing the Linux kernel to create and drive `bnep0` network interfaces.
   - BlueZ controller configuration: overrides AsteroidOS's default BLE-only controller mode (`ControllerMode = le`) with `ControllerMode = dual` and `DiscoverableTimeout = 180`, allowing simultaneous BLE background sync (`asteroid-btsyncd`) and Classic Bluetooth NAP/PAN profiles.
   - Bundled packages: `asteroid-bt-pan` auto-daemon and CLI utility, `bluez5-testtools`, `bluez5-noinst-tools`, `python3-dbus`, and `connman-client`.
+
+- **Security Hardening (Kernel Exploit Mitigations & Hardened Allocator)**:
+  - Ports the GrapheneOS `linux-hardened` patchset to the Fossil Gen 6 (`hoki`) Linux 4.14 baseline, implementing community hardening research from [AsteroidOS/asteroid#290: [Feature Request] Adopt Hardening Efforts from GrapheneOS](https://github.com/AsteroidOS/asteroid/issues/290) and [fossil-engineering/kernel-msm-fossil-cw#5: Fossil android msm hoki lw1.2 4.14 hardened](https://github.com/fossil-engineering/kernel-msm-fossil-cw/pull/5) by `sempervictus`.
+  - **Memory Allocator Hardening**: enables `CONFIG_SLAB_FREELIST_HARDENED=y` (freelist pointer obfuscation and canaries against heap spraying), `CONFIG_SLAB_FREELIST_RANDOM=y` (freelist allocation randomization), `CONFIG_HARDENED_USERCOPY=y` (strict bounds verification on `copy_to_user` and `copy_from_user`), `CONFIG_BUG_ON_DATA_CORRUPTION=y`, and zero-on-free page sanitization (`CONFIG_PAGE_SANITIZE=y`) to defeat use-after-free exploits.
+  - **Exploit Mitigations**: enables `CONFIG_REFCOUNT_FULL=y` (overflow protection on reference counters), `CONFIG_FORTIFY_SOURCE=y` (buffer boundary checking), `CONFIG_SECURITY_DMESG_RESTRICT=y` (blocks unprivileged `dmesg` access to prevent kernel address leaks), `CONFIG_SECURITY_TIOCSTI_RESTRICT=y` (blocks unprivileged terminal keystroke injection), and `CONFIG_SECURITY_PERF_EVENTS_RESTRICT=y` (restricts perf event profiling).
+  - **Attack Surface Reduction**: disables unprivileged eBPF by default (`CONFIG_BPF_UNPRIV_DEFAULT_OFF=y`), enables BPF JIT hardening, enforces strict `/dev/mem` access restrictions (`CONFIG_STRICT_DEVMEM=y`, `CONFIG_IO_STRICT_DEVMEM=y`), and incorporates runtime entropy randomization for `brk`, stack, and argument blocks.
 
 ### Community applications
 
