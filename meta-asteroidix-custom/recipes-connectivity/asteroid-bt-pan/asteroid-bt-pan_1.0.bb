@@ -1,7 +1,7 @@
 SUMMARY = "AsteroidOS Bluetooth Internet Sharing (PAN/NAP) helper"
 DESCRIPTION = "Utility and service to connect AsteroidOS to phone Bluetooth internet sharing (PAN/NAP)"
 LICENSE = "GPL-3.0-only"
-LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-3.0-only;md5=c79ff39f19672f08647ea81e66485842"
+LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/GPL-3.0-only;md5=c79ff39f19dfec6d293b95dea7b07891"
 
 SRC_URI = " \
     file://asteroid-bt-pan \
