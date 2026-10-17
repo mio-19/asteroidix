@@ -5,6 +5,8 @@ Subject: [PATCH] BluetoothPage: Add toggle for Bluetooth internet sharing
 
 Allows users to easily enable or disable automatic Bluetooth
 internet sharing fallback directly in system settings.
+
+Upstream-Status: Inappropriate [mio hoki patch]
 ---
  src/qml/BluetoothPage.qml | 106 ++++++++++++++++++++++++++++++++------
  1 file changed, 91 insertions(+), 15 deletions(-)
