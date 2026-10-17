@@ -83,13 +83,18 @@ stdenvNoCC.mkDerivation {
         '') allLayers}
 
         # Add a friendly guard in prepare-build.sh if run directly within the read-only /nix/store
+        # and ensure nounset (set -u) is disabled since OpenEmbedded setup scripts require it
         sed -i '2i \
+    set +u\
     if [ ! -w . ]; then\
         echo -e "\\e[91mError: Current directory is read-only (e.g. inside /nix/store).\\e[39m" >&2\
         echo "To build AsteroidOS using the official way, copy this tree to a writable directory first:" >&2\
         echo "  cp -rL \$(pwd) ~/asteroid-build && chmod -R u+w ~/asteroid-build && cd ~/asteroid-build" >&2\
         return 1 2>/dev/null || exit 1\
     fi' "$out/prepare-build.sh"
+
+        # Guard against unbound variable errors with ZSH_VERSION
+        sed -i 's/\$ZSH_VERSION/\$\{ZSH_VERSION:-\}/g' "$out/prepare-build.sh"
 
         ${lib.optionalString (flavor == "patched" && channel == "nightly") ''
           # Add custom and bsp layers to layers_conf in prepare-build.sh
@@ -109,6 +114,7 @@ stdenvNoCC.mkDerivation {
 
         # Validate that prepare-build.sh patches were applied correctly
         grep -q "Error: Current directory is read-only" "$out/prepare-build.sh"
+        grep -q "ZSH_VERSION:-" "$out/prepare-build.sh"
         ${lib.optionalString (flavor == "patched") ''
           grep -q "ASTEROIDIX_PATCHED" "$out/prepare-build.sh"
         ''}

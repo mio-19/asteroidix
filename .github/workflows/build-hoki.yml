@@ -85,10 +85,12 @@ jobs:
       - name: Build AsteroidOS for Fossil Gen 6 (hoki)
         shell: bash
         run: |
-          set -euo pipefail
+          set -eo pipefail
+          set +u
           cd "$HOME/asteroid"
 
           # Source prepare-build.sh as required by the official AsteroidOS documentation
+          # Note: OpenEmbedded and BitBake environment scripts do not support set -u (nounset)
           source ./prepare-build.sh hoki
 
           # Enable rm_work to conserve disk space on GitHub Actions runner
