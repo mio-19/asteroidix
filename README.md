@@ -25,7 +25,7 @@ emulator (QEMU x86 with Virgil3D acceleration) allows running and developing for
 
 **Stable** is AsteroidOS 2.1. Upstream keeps that release on git branches named `2.0`: Walnascar, BitBake 2.12, and Qt 5. Layers match [`prepare-build.sh` on 2.0](https://github.com/AsteroidOS/asteroid/blob/2.0/prepare-build.sh): `meta-qt5`, `oe-core`, `meta-asteroid`, `meta-asteroid-community`, `meta-smartwatch`, `meta-smartphone`, and `meta-openembedded`. `aurora`, `eos`, `seluna`, `solios`, and `medaka` exist on nightly only.
 
-**Official** (`*-official`) stays as close to upstream official AsteroidOS as a Nix build allows. Uses only official upstream layers plus [`meta-asteroidix-sandbox`](./meta-asteroidix-sandbox) for unprivileged Nix sandbox compatibility (shadow, util-linux, perl), without custom apps or out-of-tree patches. `local.conf` starts from the upstream pair:
+**Official** (`*-official`) stays as close to upstream official AsteroidOS as a Nix build allows. Uses only official upstream layers plus [`meta-asteroidix-sandbox`](./meta-asteroidix-sandbox) for unprivileged Nix sandbox compatibility (shadow, util-linux, perl), without custom apps or out-of-tree patches (unofficial targets `eos`, `solios`, and `seluna` also include [`meta-asteroidix-bsp`](./meta-asteroidix-bsp) for machine definitions). `local.conf` starts from the upstream pair:
 
 ```
 DISTRO = "asteroid"
@@ -34,7 +34,7 @@ PACKAGE_CLASSES = "package_ipk"
 
 The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`, and `CONNECTIVITY_CHECK_URIS = ""` so BitBake can run offline against the prefetch mirror.
 
-**Patched** (`*-patched`) is the official configuration plus our custom applications, community fixes, and hardware enablement in [`meta-asteroidix-custom`](./meta-asteroidix-custom) (and [`meta-asteroidix-bsp`](./meta-asteroidix-bsp) for unofficial targets `eos`, `solios`, `seluna`). `nightly-patched` is the default:
+**Patched** (`*-patched`) is the official configuration plus our custom applications, community fixes, and hardware enablement in [`meta-asteroidix-custom`](./meta-asteroidix-custom). `nightly-patched` is the default:
 
 - Find phone, on every nightly-patched machine: a launcher app that asks the paired phone to ring. See below.
 - Community applications on every nightly-patched machine: `unofficial-watchfaces`, `asteroid-blaster`, `asteroid-dodger`, `asteroid-health`, `asteroid-map`, `asteroid-qmltester`, `asteroid-skedaddle`, and `asteroid-weatherfetch`. See below.
@@ -149,7 +149,7 @@ nix build github:mio-19/asteroidix#emulator-nightly-patched-img
 
 `#hoki-official-img` and `#hoki-patched-img` are the nightly hoki pair. `#img` and `#hoki-img` alias nightly patched hoki.
 `#aurora-official-img`, `#aurora-patched-img`, and `#aurora-img` are the nightly aurora pair.
-Other machines in [`configs.nix`](./configs.nix) have the same four suffixes, except aurora and medaka, which are nightly only. Every nightly-patched image includes Find phone and custom applications.
+Other machines in [`configs.nix`](./configs.nix) have the same four suffixes, except aurora, eos, seluna, solios, and medaka, which are nightly only. Every nightly-patched image includes Find phone and custom applications.
 When a device hash exists for that variant in [`prefetch-lock.json`](./prefetch-lock.json), prefetch mode is enabled automatically. Pre-generated download hashes are maintained in `prefetch-lock.json`; new variant/machine pairs need `update-prefetch-lock` before an offline build.
 
 Use as a library (similar to `robotnix.lib.robotnixSystem`) in your own flake:

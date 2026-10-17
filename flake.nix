@@ -61,6 +61,7 @@
             runtimeInputs = with pkgs; [
               coreutils
               curl
+              findutils
               qemu
             ];
             text = ''
@@ -115,19 +116,6 @@
             ];
             text = ''
               exec env REPO_ROOT="$PWD" ${./scripts/setup-watch-ssh.sh} "$@"
-            '';
-          };
-          runEmulator = pkgs.writeShellApplication {
-            name = "run-emulator";
-            runtimeInputs = with pkgs; [
-              coreutils
-              curl
-              findutils
-              qemu
-              e2fsprogs
-            ];
-            text = ''
-              exec env REPO_ROOT="$PWD" ${./scripts/run-emulator.sh} "$@"
             '';
           };
         in

@@ -4,7 +4,8 @@ set -euo pipefail
 # test-ladybird-watch-ui.sh
 # Test Ladybird rendering and UI behavior under smartwatch display constraints (e.g. 416x416 or 454x454).
 
-LADYBIRD_BIN="/nix/store/z4qxldbnxxhxlvc46j6ghs5b2sj4f577-ladybird-0-unstable-2026-09-18/bin/Ladybird"
+DEFAULT_NIX_LADYBIRD="/nix/store/z4qxldbnxxhxlvc46j6ghs5b2sj4f577-ladybird-0-unstable-2026-09-18/bin/Ladybird"
+LADYBIRD_BIN="${LADYBIRD_BIN:-$(command -v Ladybird 2>/dev/null || command -v ladybird 2>/dev/null || echo "$DEFAULT_NIX_LADYBIRD")}"
 WIDTH="${1:-416}"
 HEIGHT="${2:-416}"
 URL="${3:-https://asteroidos.org}"
