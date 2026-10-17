@@ -1,0 +1,112 @@
+From 8f81395b0606f1577742da5ab16a506d871787c9 Mon Sep 17 00:00:00 2001
+From: Asteroidix <dev@asteroidix.org>
+Date: Sun, 18 Oct 2026 08:40:00 +1100
+Subject: [PATCH] CMakeLists: add ENABLE_OPENCC option to allow building without OpenCC
+
+Upstream-Status: Inappropriate [embedded build without opencc]
+---
+ CMakeLists.txt              |  5 +++++
+ src/CMakeLists.txt          |  6 ++++++
+ src/rime/gear/simplifier.cc | 39 +++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 50 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 13bbedf..71ab7e1 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -138,6 +138,8 @@ if(Marisa_FOUND)
+   include_directories(${Marisa_INCLUDE_PATH})
+ endif()
+ 
++option(ENABLE_OPENCC "Enable OpenCC support" ON)
++if(ENABLE_OPENCC)
+ find_package(Opencc REQUIRED)
+ if(Opencc_FOUND)
+ include_directories(${Opencc_INCLUDE_PATH})
+@@ -145,6 +147,9 @@ endif()
+ if(Opencc_STATIC)
+   add_definitions(-DOpencc_BUILT_AS_STATIC)
+ endif()
++else()
++  add_definitions(-DRIME_NO_OPENCC)
++endif()
+ 
+ find_path(X11Keysym X11/keysym.h)
+ if(X11Keysym)
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 1608286..fb52198 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -52,10 +52,16 @@ set(rime_core_deps
+ set(rime_dict_deps
+     ${LevelDb_LIBRARY}
+     ${Marisa_LIBRARY})
++if(ENABLE_OPENCC)
+ set(rime_gears_deps
+     ${ICONV_LIBRARIES}
+     ${ICU_LIBRARIES}
+     ${Opencc_LIBRARY})
++else()
++set(rime_gears_deps
++    ${ICONV_LIBRARIES}
++    ${ICU_LIBRARIES})
++endif()
+ set(rime_levers_deps "")
+ 
+ if(Glog_FOUND AND WIN32)
+diff --git a/src/rime/gear/simplifier.cc b/src/rime/gear/simplifier.cc
+index 6109194..99c56dc 100644
+--- a/src/rime/gear/simplifier.cc
++++ b/src/rime/gear/simplifier.cc
+@@ -2,6 +2,43 @@
+ // Copyright RIME Developers
+ // Distributed under the BSD License
+ //
++#ifdef RIME_NO_OPENCC
++
++#include <rime/candidate.h>
++#include <rime/common.h>
++#include <rime/translation.h>
++#include <rime/gear/simplifier.h>
++
++namespace rime {
++
++class Opencc {};
++
++Simplifier::Simplifier(const Ticket& ticket) : Filter(ticket) {}
++
++void Simplifier::Initialize() {
++  initialized_ = true;
++}
++
++an<Translation> Simplifier::Apply(an<Translation> translation,
++                                  CandidateList* candidates) {
++  return translation;
++}
++
++bool Simplifier::Convert(const an<Candidate>& original, CandidateQueue* result) {
++  return false;
++}
++
++void Simplifier::PushBack(const an<Candidate>& original,
++                          CandidateQueue* result,
++                          const string& simplified) {}
++
++}  // namespace rime
++
++#else
++//
++// Copyright RIME Developers
++// Distributed under the BSD License
++//
+ // 2011-12-12 GONG Chen <chen.sst@gmail.com>
+ //
+ #include <boost/algorithm/string.hpp>
+@@ -318,3 +355,5 @@ bool Simplifier::Convert(const an<Candidate>& original,
+ }
+ 
+ }  // namespace rime
++
++#endif  // RIME_NO_OPENCC
+-- 
+2.55.0
