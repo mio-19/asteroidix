@@ -1151,17 +1151,17 @@ diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
 index eae4331bb2d0..0bc187db5035 100644
 --- a/include/linux/perf_event.h
 +++ b/include/linux/perf_event.h
-@@ -1208,6 +1208,13 @@ int perf_event_max_stack_handler(struct ctl_table *table, int write,
+@@ -1206,6 +1206,11 @@ int perf_event_max_stack_handler(struct ctl_table *table, int write,
+ #define PERF_SECURITY_CPU		1
+ #define PERF_SECURITY_KERNEL		2
  #define PERF_SECURITY_TRACEPOINT	3
- 
- static inline int perf_is_paranoid(void)
 +
 +static inline bool perf_paranoid_any(void)
 +{
 +	return sysctl_perf_event_paranoid > 2;
 +}
-+
-+static inline bool perf_paranoid_tracepoint_raw(void)
+ 
+ static inline int perf_is_paranoid(void)
  {
  	return sysctl_perf_event_paranoid > -1;
  }
