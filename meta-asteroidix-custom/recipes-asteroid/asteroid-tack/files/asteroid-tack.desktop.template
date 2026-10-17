@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Categories=Applications;
+Exec=asteroid-tack
+Icon=ios-timer
+X-Asteroid-Center-Color=#534600
+X-Asteroid-Outer-Color=#16140b

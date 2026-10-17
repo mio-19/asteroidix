@@ -1,5 +1,5 @@
-# Every nightly-patched machine gets find phone and web browser. Official builds omit these packages.
-IMAGE_INSTALL:append = "${@' asteroid-findphone asteroid-browser' if d.getVar('ASTEROIDIX_PATCHED') == '1' else ''}"
+# Every nightly-patched machine gets find phone, web browser, and tack metronome. Official builds omit these packages.
+IMAGE_INSTALL:append = "${@' asteroid-findphone asteroid-browser asteroid-tack' if d.getVar('ASTEROIDIX_PATCHED') == '1' else ''}"
 
 # Community applications on patched builds
 IMAGE_INSTALL:append = "${@' unofficial-watchfaces asteroid-blaster asteroid-dodger asteroid-health asteroid-map asteroid-qmltester asteroid-skedaddle asteroid-weatherfetch' if d.getVar('ASTEROIDIX_PATCHED') == '1' else ''}"
