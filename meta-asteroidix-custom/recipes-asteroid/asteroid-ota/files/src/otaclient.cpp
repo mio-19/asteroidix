@@ -7,10 +7,12 @@
 OTAClient::OTAClient(QObject *parent)
     : QObject(parent)
     , m_state(QStringLiteral("idle"))
-    , m_statusMessage(QStringLiteral("Checking for updates..."))
+    , m_statusMessage(QStringLiteral("Ready to update"))
     , m_progress(0)
     , m_currentStep(QString())
-    , m_upgradableCount(0)
+    , m_imageSource(QString())
+    , m_machineName(QStringLiteral("hoki"))
+    , m_defaultSource(QString())
     , m_batteryLevel(100)
     , m_isCharging(true)
     , m_networkAvailable(false)
@@ -51,15 +53,15 @@ OTAClient::OTAClient(QObject *parent)
             QStringLiteral("org.asteroidos.OTA1"),
             QStringLiteral("/org/asteroidos/OTA1"),
             QStringLiteral("org.asteroidos.OTA1"),
-            QStringLiteral("checkFinished"),
-            this, SLOT(onCheckFinished(int,QStringList,QString))
+            QStringLiteral("imageSourceChanged"),
+            this, SLOT(onImageSourceChanged(QString))
         );
         QDBusConnection::systemBus().connect(
             QStringLiteral("org.asteroidos.OTA1"),
             QStringLiteral("/org/asteroidos/OTA1"),
             QStringLiteral("org.asteroidos.OTA1"),
-            QStringLiteral("upgradeFinished"),
-            this, SLOT(onUpgradeFinished(bool,QString))
+            QStringLiteral("updateFinished"),
+            this, SLOT(onUpdateFinished(bool,QString))
         );
     } else {
         qWarning() << "OTAClient: Cannot connect to org.asteroidos.OTA1 D-Bus service:" << m_iface->lastError().message();
@@ -107,16 +109,21 @@ void OTAClient::fetchDaemonState()
         Q_EMIT currentStepChanged();
     }
 
-    QDBusReply<int> countReply = m_iface->call(QStringLiteral("GetUpgradableCount"));
-    if (countReply.isValid()) {
-        m_upgradableCount = countReply.value();
-        Q_EMIT upgradableCountChanged();
+    QDBusReply<QString> machReply = m_iface->call(QStringLiteral("GetMachineName"));
+    if (machReply.isValid()) {
+        m_machineName = machReply.value();
+        Q_EMIT machineNameChanged();
     }
 
-    QDBusReply<QStringList> pkgsReply = m_iface->call(QStringLiteral("GetUpgradablePackages"));
-    if (pkgsReply.isValid()) {
-        m_upgradablePackages = pkgsReply.value();
-        Q_EMIT upgradablePackagesChanged();
+    QDBusReply<QString> defReply = m_iface->call(QStringLiteral("GetDefaultImageSource"));
+    if (defReply.isValid()) {
+        m_defaultSource = defReply.value();
+    }
+
+    QDBusReply<QString> srcReply = m_iface->call(QStringLiteral("GetImageSource"));
+    if (srcReply.isValid()) {
+        m_imageSource = srcReply.value();
+        Q_EMIT imageSourceChanged();
     }
 
     QDBusReply<int> batReply = m_iface->call(QStringLiteral("GetBatteryLevel"));
@@ -142,29 +149,33 @@ void OTAClient::fetchDaemonState()
     Q_EMIT statsChanged();
 }
 
-void OTAClient::checkForUpdates()
+void OTAClient::setImageSource(const QString &source)
 {
     if (m_iface && m_iface->isValid()) {
-        m_state = QStringLiteral("checking");
-        m_statusMessage = QStringLiteral("Checking for updates...");
-        Q_EMIT stateChanged();
-        Q_EMIT statusMessageChanged();
-        m_iface->call(QStringLiteral("CheckForUpdates"));
-    } else {
-        refresh();
+        m_iface->call(QStringLiteral("SetImageSource"), source);
+        m_imageSource = source;
+        Q_EMIT imageSourceChanged();
     }
 }
 
-void OTAClient::startUpgrade()
+void OTAClient::startImageUpdate(const QString &source)
 {
     if (m_iface && m_iface->isValid()) {
-        m_state = QStringLiteral("upgrading");
-        m_statusMessage = QStringLiteral("Starting upgrade...");
-        m_progress = 5;
+        QString s = source.isEmpty() ? m_imageSource : source;
+        m_state = QStringLiteral("downloading");
+        m_statusMessage = QStringLiteral("Starting update...");
+        m_progress = 1;
         Q_EMIT stateChanged();
         Q_EMIT statusMessageChanged();
         Q_EMIT progressChanged();
-        m_iface->call(QStringLiteral("StartUpgrade"));
+        m_iface->call(QStringLiteral("StartImageUpdate"), s);
+    }
+}
+
+void OTAClient::cancelUpdate()
+{
+    if (m_iface && m_iface->isValid()) {
+        m_iface->call(QStringLiteral("CancelUpdate"));
     }
 }
 
@@ -199,36 +210,22 @@ void OTAClient::onProgressChanged(int percent, const QString &step)
     Q_EMIT currentStepChanged();
 }
 
-void OTAClient::onCheckFinished(int count, const QStringList &packages, const QString &error)
+void OTAClient::onImageSourceChanged(const QString &newSource)
 {
-    m_upgradableCount = count;
-    m_upgradablePackages = packages;
-    Q_EMIT upgradableCountChanged();
-    Q_EMIT upgradablePackagesChanged();
-
-    if (!error.isEmpty()) {
-        m_state = QStringLiteral("error");
-        m_statusMessage = error;
-    } else if (count == 0) {
-        m_state = QStringLiteral("up_to_date");
-        m_statusMessage = QStringLiteral("AsteroidOS is up to date");
-    } else {
-        m_state = QStringLiteral("available");
-        m_statusMessage = QStringLiteral("%1 update(s) available").arg(count);
+    if (m_imageSource != newSource) {
+        m_imageSource = newSource;
+        Q_EMIT imageSourceChanged();
     }
-
-    Q_EMIT stateChanged();
-    Q_EMIT statusMessageChanged();
 }
 
-void OTAClient::onUpgradeFinished(bool success, const QString &error)
+void OTAClient::onUpdateFinished(bool success, const QString &error)
 {
     if (success) {
         m_state = QStringLiteral("reboot_required");
-        m_statusMessage = QStringLiteral("Upgrade complete! Reboot to apply.");
+        m_statusMessage = QStringLiteral("New OS image applied! Reboot to complete.");
     } else {
         m_state = QStringLiteral("error");
-        m_statusMessage = error.isEmpty() ? QStringLiteral("Upgrade failed.") : error;
+        m_statusMessage = error.isEmpty() ? QStringLiteral("Update failed.") : error;
     }
 
     Q_EMIT stateChanged();

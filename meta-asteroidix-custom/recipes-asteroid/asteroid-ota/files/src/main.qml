@@ -5,10 +5,22 @@ import org.asteroid.utils
 Application {
     id: app
 
-    centerColor: otaClient.state === "upgrading" ? "#143a68" :
+    centerColor: otaClient.state === "syncing" || otaClient.state === "downloading" ? "#143a68" :
                  (otaClient.state === "reboot_required" ? "#1e5c32" :
                  (otaClient.state === "error" ? "#661f1f" : "#1b4d89"))
     outerColor: "#0a1e38"
+
+    property int sourceIndex: 0
+    readonly property var sources: [
+        { name: "Official Nightly", url: otaClient.defaultSource },
+        { name: "Local File", url: "/tmp/asteroid-image.ext4" },
+        { name: "Custom Host", url: "http://192.168.2.1:8000/asteroid-image.ext4" }
+    ]
+
+    function cycleSource() {
+        sourceIndex = (sourceIndex + 1) % sources.length
+        otaClient.imageSource = sources[sourceIndex].url
+    }
 
     Flickable {
         id: flickable
@@ -30,11 +42,11 @@ Application {
             // Header Icon
             Item {
                 width: parent.width
-                height: Dims.h(18)
+                height: Dims.h(16)
 
                 Rectangle {
                     anchors.centerIn: parent
-                    width: Dims.w(16)
+                    width: Dims.w(15)
                     height: width
                     radius: width / 2
                     color: "white"
@@ -44,27 +56,25 @@ Application {
                 Icon {
                     id: statusIcon
                     anchors.centerIn: parent
-                    width: Dims.w(12)
+                    width: Dims.w(11)
                     height: width
                     name: {
                         switch (otaClient.state) {
-                        case "checking":
-                        case "upgrading":
-                            return "ios-sync"
-                        case "available":
+                        case "downloading":
                             return "ios-cloud-download"
-                        case "up_to_date":
+                        case "syncing":
+                            return "ios-sync"
                         case "reboot_required":
                             return "ios-checkmark-circle"
                         case "error":
                             return "ios-alert"
                         default:
-                            return "ios-sync"
+                            return "ios-disc"
                         }
                     }
 
                     RotationAnimation on rotation {
-                        running: otaClient.state === "checking" || otaClient.state === "upgrading"
+                        running: otaClient.state === "downloading" || otaClient.state === "syncing"
                         loops: Animation.Infinite
                         from: 0
                         to: 360
@@ -78,25 +88,21 @@ Application {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width * 0.85
                 horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: Dims.h(5)
+                font.pixelSize: Dims.h(4.8)
                 font.bold: true
                 wrapMode: Text.WordWrap
                 text: {
                     switch (otaClient.state) {
-                    case "checking":
-                        return "Checking Updates"
-                    case "up_to_date":
-                        return "Up to Date"
-                    case "available":
-                        return otaClient.upgradableCount + " Updates Ready"
-                    case "upgrading":
-                        return "Upgrading " + otaClient.progress + "%"
+                    case "downloading":
+                        return "Downloading Image"
+                    case "syncing":
+                        return "Applying OS Image"
                     case "reboot_required":
-                        return "Upgrade Complete!"
+                        return "Image Installed!"
                     case "error":
-                        return "Update Paused"
+                        return "Update Failed"
                     default:
-                        return "AsteroidOS OTA"
+                        return "Image OTA Update"
                     }
                 }
             }
@@ -106,27 +112,27 @@ Application {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width * 0.82
                 horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: Dims.h(3.6)
+                font.pixelSize: Dims.h(3.4)
                 opacity: 0.85
                 wrapMode: Text.WordWrap
                 text: otaClient.statusMessage
             }
 
-            // Current step details (during upgrade)
+            // Current step details (during download / sync)
             Label {
-                visible: otaClient.state === "upgrading" && otaClient.currentStep !== ""
+                visible: (otaClient.state === "downloading" || otaClient.state === "syncing") && otaClient.currentStep !== ""
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: parent.width * 0.82
                 horizontalAlignment: Text.AlignHCenter
-                font.pixelSize: Dims.h(3.2)
-                opacity: 0.7
+                font.pixelSize: Dims.h(3.0)
+                opacity: 0.75
                 elide: Text.ElideMiddle
                 text: otaClient.currentStep
             }
 
-            // Progress Bar (during upgrade or checking)
+            // Progress Bar
             Item {
-                visible: otaClient.state === "upgrading" || otaClient.state === "checking"
+                visible: otaClient.state === "downloading" || otaClient.state === "syncing"
                 width: parent.width
                 height: Dims.h(4)
 
@@ -152,14 +158,66 @@ Application {
                 }
             }
 
+            // Image Source Selector Card (visible when idle or error)
+            Item {
+                visible: otaClient.state === "idle" || otaClient.state === "error"
+                width: parent.width
+                height: Dims.h(13)
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width * 0.85
+                    height: parent.height
+                    radius: Dims.h(2)
+                    color: "black"
+                    opacity: 0.35
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: app.cycleSource()
+                    }
+
+                    Column {
+                        anchors.centerIn: parent
+                        width: parent.width * 0.9
+                        spacing: Dims.h(0.5)
+
+                        Row {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            spacing: Dims.w(2)
+                            Icon {
+                                width: Dims.w(3.5)
+                                height: width
+                                name: "ios-swap"
+                            }
+                            Label {
+                                font.pixelSize: Dims.h(3)
+                                font.bold: true
+                                text: "Source: " + sources[sourceIndex].name
+                            }
+                        }
+
+                        Label {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            font.pixelSize: Dims.h(2.4)
+                            opacity: 0.75
+                            elide: Text.ElideMiddle
+                            text: otaClient.imageSource
+                        }
+                    }
+                }
+            }
+
             // Status badges: Network & Battery
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: Dims.w(3)
-                visible: otaClient.state === "idle" || otaClient.state === "available" || otaClient.state === "error"
+                visible: otaClient.state === "idle" || otaClient.state === "error"
 
                 Rectangle {
-                    height: Dims.h(5)
+                    height: Dims.h(4.8)
                     width: netRow.implicitWidth + Dims.w(4)
                     radius: height / 2
                     color: "white"
@@ -170,19 +228,19 @@ Application {
                         anchors.centerIn: parent
                         spacing: Dims.w(1.5)
                         Icon {
-                            width: Dims.w(4)
+                            width: Dims.w(3.8)
                             height: width
                             name: otaClient.networkAvailable ? "ios-wifi" : "ios-close-circle"
                         }
                         Label {
-                            font.pixelSize: Dims.h(3)
+                            font.pixelSize: Dims.h(2.8)
                             text: otaClient.networkType
                         }
                     }
                 }
 
                 Rectangle {
-                    height: Dims.h(5)
+                    height: Dims.h(4.8)
                     width: batRow.implicitWidth + Dims.w(4)
                     radius: height / 2
                     color: "white"
@@ -193,29 +251,29 @@ Application {
                         anchors.centerIn: parent
                         spacing: Dims.w(1.5)
                         Icon {
-                            width: Dims.w(4)
+                            width: Dims.w(3.8)
                             height: width
                             name: otaClient.isCharging ? "ios-battery-charging" : "ios-battery-full"
                         }
                         Label {
-                            font.pixelSize: Dims.h(3)
+                            font.pixelSize: Dims.h(2.8)
                             text: otaClient.batteryLevel + "%"
                         }
                     }
                 }
             }
 
-            // Zero Data Loss note
+            // Zero Data Loss Guarantee card
             Item {
                 width: parent.width
-                height: Dims.h(8)
-                visible: otaClient.state === "idle" || otaClient.state === "available"
+                height: Dims.h(7.5)
+                visible: otaClient.state === "idle"
 
                 Rectangle {
                     anchors.centerIn: parent
                     width: parent.width * 0.85
                     height: parent.height
-                    radius: Dims.h(2)
+                    radius: Dims.h(1.8)
                     color: "black"
                     opacity: 0.25
 
@@ -223,10 +281,10 @@ Application {
                         anchors.centerIn: parent
                         width: parent.width * 0.92
                         horizontalAlignment: Text.AlignHCenter
-                        font.pixelSize: Dims.h(2.8)
+                        font.pixelSize: Dims.h(2.6)
                         opacity: 0.9
                         wrapMode: Text.WordWrap
-                        text: "Personal data, pairings, alarms & watchfaces are preserved."
+                        text: "Loops-mounts complete OS image. User data in /home/ceres is preserved."
                     }
                 }
             }
@@ -242,34 +300,28 @@ Application {
                     width: parent.width * 0.75
                     height: Dims.h(8)
 
-                    visible: otaClient.state !== "upgrading" && otaClient.state !== "checking"
+                    visible: otaClient.state !== "downloading" && otaClient.state !== "syncing"
 
                     text: {
                         switch (otaClient.state) {
-                        case "available":
-                            return "Install Update"
-                        case "up_to_date":
-                            return "Check Again"
                         case "reboot_required":
                             return "Reboot Now"
                         case "error":
                             return "Retry"
                         default:
-                            return "Check for Updates"
+                            return "Install Image OTA"
                         }
                     }
 
                     onClicked: {
-                        if (otaClient.state === "available") {
-                            remorse.action = "Installing update"
-                            remorse.callback = function() { otaClient.startUpgrade() }
-                            remorse.start()
-                        } else if (otaClient.state === "reboot_required") {
+                        if (otaClient.state === "reboot_required") {
                             remorse.action = "Rebooting watch"
                             remorse.callback = function() { otaClient.rebootWatch() }
                             remorse.start()
                         } else {
-                            otaClient.checkForUpdates()
+                            remorse.action = "Starting Image OTA"
+                            remorse.callback = function() { otaClient.startImageUpdate() }
+                            remorse.start()
                         }
                     }
                 }
@@ -282,7 +334,7 @@ Application {
         }
     }
 
-    // Remorse timer for critical actions (install, reboot)
+    // Remorse timer for critical actions
     RemorseTimer {
         id: remorse
         duration: 3500

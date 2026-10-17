@@ -123,17 +123,24 @@ The `hoki-nightly-patched` image incorporates community hardware enablement for 
 
 ### GUI Over-The-Air (OTA) Updates Without Data Loss
 
-Historically, AsteroidOS watches lacked stock internet connectivity, leading users to upgrade by completely reflashing system images and consequently wiping personal settings, alarms, and paired device configurations. With Wi-Fi enablement and Bluetooth Internet Sharing (PAN) now available on AsteroidOS watches, `asteroid-ota` provides a native, smartwatch-optimized graphical OTA upgrade workflow with zero data loss:
+### GUI Over-The-Air (OTA) Updates Without Data Loss
 
-- **Zero Data Loss Guarantee**: Updates are applied in-place using AsteroidOS's OPKG package management subsystem (`opkg update && opkg upgrade`). User data, DConf configurations, Bluetooth pairing keys, alarms, health stats, and custom watchfaces stored in `/home/ceres` and `/var/lib/` are preserved intact.
+Historically, AsteroidOS watches lacked stock internet connectivity, leading users to upgrade by completely reflashing system images and consequently wiping personal settings, alarms, and paired device configurations. With Wi-Fi enablement and Bluetooth Internet Sharing (PAN) now available on AsteroidOS watches, `asteroid-ota` provides a native, smartwatch-optimized graphical OTA upgrade workflow allowing users to update to a new complete OS image (`.ext4`) with zero data loss:
+
+- **Complete Image Specification**: Users can provide a target complete OS image (`.ext4`) via remote HTTP/HTTPS URL (e.g. official nightly channel, self-hosted build server) or a local file on the watch (e.g. `/tmp/asteroid-image.ext4`).
+- **Zero Data Loss via Loop-Mount & Sync**: Rather than flashing the raw block device and wiping userdata, the privileged update engine loop-mounts the complete new OS image read-only (`mount -o loop,ro`), verifies filesystem integrity, and synchronizes system files (`/usr`, `/lib`, `/bin`, `/sbin`, `/etc`) into place using extended attributes. It strictly excludes and preserves:
+  - `/home/ceres` (user settings, dconf keys, custom watchfaces, alarms, health data)
+  - `/var/lib/connman` (saved Wi-Fi connections and credentials)
+  - `/var/lib/bluetooth` (Bluetooth paired keys and bond state)
+  - `/etc/machine-id` and `/etc/hostname` (unique hardware identifiers)
 - **Privileged System Daemon (`asteroid-otad`)**: Runs in the background as `root` via systemd (`asteroid-otad.service`), exposing an unprivileged-accessible D-Bus interface `org.asteroidos.OTA1` on the System Bus.
 - **Safety Pre-flight Checks**:
-  - **Internet Connectivity**: Verifies active routing and DNS via Wi-Fi (`wlan0`), Bluetooth PAN tethering (`bnep0`), or USB (`rndis0`).
-  - **System Clock & SSL Validation**: Validates that system time is current (preventing `SSL peer certificate or SSH remote key was not OK` errors documented in the AsteroidOS wiki) and triggers `systemd-timesyncd` synchronization if necessary.
+  - **Connectivity**: Verifies active routing and DNS via Wi-Fi (`wlan0`), Bluetooth PAN tethering (`bnep0`), or USB (`rndis0`).
+  - **System Clock & SSL Validation**: Validates that system time is current (preventing `SSL peer certificate or SSH remote key was not OK` errors) and triggers `systemd-timesyncd` synchronization if necessary.
   - **Battery Safeguard**: Prohibits upgrading when battery capacity is under 20% unless connected to a charger.
-  - **Storage Verification**: Ensures at least 80MB of free space is available on the root filesystem before downloading packages.
+  - **Storage Verification**: Ensures sufficient free space is available on the root filesystem before downloading and syncing.
 - **Smartwatch UI (`asteroid-ota` & `asteroid-settings`)**:
-  - Dedicated standalone app: responsive QML interface featuring radial background gradients, round/square screen layout adaptation, live download/installation progress tracking, Remorse countdown timers, and clean reboot prompts via `systemd-login1`.
+  - Dedicated standalone app: responsive QML interface featuring radial background gradients, round/square screen layout adaptation, image source selector (Official Nightly, Local File, Custom Host), live download/sync progress tracking, Remorse countdown timers, and clean reboot prompts via `systemd-login1`.
   - Settings Integration: accessible directly within AsteroidOS Settings under **Settings > System Update**.
 
 ### Community applications

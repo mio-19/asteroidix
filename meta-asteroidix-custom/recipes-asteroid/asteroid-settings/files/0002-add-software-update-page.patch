@@ -5,14 +5,14 @@ Subject: [PATCH] Add System Update page to Settings
 
 Adds an interactive OTA System Update page to AsteroidOS Settings,
 communicating directly with org.asteroidos.OTA1 on the System D-Bus
-to allow checking and installing updates without data loss.
+to allow checking and installing complete OS images without data loss.
 
 Upstream-Status: Inappropriate [asteroidix feature]
 ---
  src/CMakeLists.txt       |   1 +
- src/qml/UpdatePage.qml   | 245 +++++++++++++++++++++++++++++++++++++++
+ src/qml/UpdatePage.qml   | 265 +++++++++++++++++++++++++++++++++++++++
  src/qml/main.qml         |   9 ++
- 3 files changed, 255 insertions(+)
+ 3 files changed, 275 insertions(+)
  create mode 100644 src/qml/UpdatePage.qml
 
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
@@ -29,10 +29,10 @@ index 759f2a1..3524bca 100644
  target_include_directories(
 diff --git a/src/qml/UpdatePage.qml b/src/qml/UpdatePage.qml
 new file mode 100644
-index 0000000..f92415c
+index 0000000..8a419fc
 --- /dev/null
 +++ b/src/qml/UpdatePage.qml
-@@ -0,0 +1,245 @@
+@@ -0,0 +1,265 @@
 +/*
 + * Copyright (C) 2026 - Asteroidix
 + *
@@ -53,14 +53,24 @@ index 0000000..f92415c
 +    property var pop
 +
 +    property string otaState: "idle"
-+    property string statusMessage: "Check for updates"
++    property string statusMessage: "Ready to update"
 +    property int progressVal: 0
 +    property string currentStep: ""
-+    property int upgradableCount: 0
-+    property bool networkAvailable: false
-+    property string networkType: "None"
-+    property int batteryLevel: 100
-+    property bool isCharging: true
++    property string imageSource: ""
++    property string defaultSource: ""
++    property int sourceIndex: 0
++
++    readonly property var sources: [
++        { name: "Official Nightly", url: defaultSource },
++        { name: "Local File", url: "/tmp/asteroid-image.ext4" },
++        { name: "Custom Host", url: "http://192.168.2.1:8000/asteroid-image.ext4" }
++    ]
++
++    function cycleSource() {
++        sourceIndex = (sourceIndex + 1) % sources.length
++        imageSource = sources[sourceIndex].url
++        otaDBus.typedCall("SetImageSource", [{ type: "s", value: imageSource }])
++    }
 +
 +    DBusInterface {
 +        id: otaDBus
@@ -75,11 +85,11 @@ index 0000000..f92415c
 +            typedCall("GetStatusMessage", [], function(val) { statusMessage = val })
 +            typedCall("GetProgress", [], function(val) { progressVal = val })
 +            typedCall("GetCurrentStep", [], function(val) { currentStep = val })
-+            typedCall("GetUpgradableCount", [], function(val) { upgradableCount = val })
-+            typedCall("GetBatteryLevel", [], function(val) { batteryLevel = val })
-+            typedCall("IsCharging", [], function(val) { isCharging = val })
-+            typedCall("IsNetworkAvailable", [], function(val) { networkAvailable = val })
-+            typedCall("GetNetworkType", [], function(val) { networkType = val })
++            typedCall("GetImageSource", [], function(val) { imageSource = val })
++            typedCall("GetDefaultImageSource", [], function(val) {
++                defaultSource = val
++                if (imageSource === "") imageSource = val
++            })
 +        }
 +    }
 +
@@ -122,19 +132,7 @@ index 0000000..f92415c
 +        service: "org.asteroidos.OTA1"
 +        path: "/org/asteroidos/OTA1"
 +        iface: "org.asteroidos.OTA1"
-+        signal: "checkFinished"
-+        onTriggered: {
-+            upgradableCount = arguments[0]
-+            otaDBus.refresh()
-+        }
-+    }
-+
-+    DBusSignal {
-+        bus: DBus.SystemBus
-+        service: "org.asteroidos.OTA1"
-+        path: "/org/asteroidos/OTA1"
-+        iface: "org.asteroidos.OTA1"
-+        signal: "upgradeFinished"
++        signal: "updateFinished"
 +        onTriggered: {
 +            otaDBus.refresh()
 +        }
@@ -162,11 +160,11 @@ index 0000000..f92415c
 +
 +            Item {
 +                width: parent.width
-+                height: Dims.h(16)
++                height: Dims.h(15)
 +
 +                Rectangle {
 +                    anchors.centerIn: parent
-+                    width: Dims.w(15)
++                    width: Dims.w(14)
 +                    height: width
 +                    radius: width / 2
 +                    color: "white"
@@ -175,17 +173,17 @@ index 0000000..f92415c
 +
 +                Icon {
 +                    anchors.centerIn: parent
-+                    width: Dims.w(11)
++                    width: Dims.w(10)
 +                    height: width
 +                    name: {
-+                        if (otaState === "checking" || otaState === "upgrading") return "ios-sync"
-+                        if (otaState === "available") return "ios-cloud-download"
-+                        if (otaState === "up_to_date" || otaState === "reboot_required") return "ios-checkmark-circle"
++                        if (otaState === "downloading") return "ios-cloud-download"
++                        if (otaState === "syncing") return "ios-sync"
++                        if (otaState === "reboot_required") return "ios-checkmark-circle"
 +                        if (otaState === "error") return "ios-alert"
-+                        return "ios-sync"
++                        return "ios-disc"
 +                    }
 +                    RotationAnimation on rotation {
-+                        running: otaState === "checking" || otaState === "upgrading"
++                        running: otaState === "downloading" || otaState === "syncing"
 +                        loops: Animation.Infinite
 +                        from: 0
 +                        to: 360
@@ -198,17 +196,15 @@ index 0000000..f92415c
 +                anchors.horizontalCenter: parent.horizontalCenter
 +                width: parent.width * 0.85
 +                horizontalAlignment: Text.AlignHCenter
-+                font.pixelSize: Dims.h(4.8)
++                font.pixelSize: Dims.h(4.6)
 +                font.bold: true
 +                wrapMode: Text.WordWrap
 +                text: {
-+                    if (otaState === "checking") return "Checking Updates"
-+                    if (otaState === "up_to_date") return "System Up to Date"
-+                    if (otaState === "available") return upgradableCount + " Updates Ready"
-+                    if (otaState === "upgrading") return "Upgrading " + progressVal + "%"
-+                    if (otaState === "reboot_required") return "Upgrade Complete!"
-+                    if (otaState === "error") return "Update Paused"
-+                    return "System Update"
++                    if (otaState === "downloading") return "Downloading Image"
++                    if (otaState === "syncing") return "Applying Image"
++                    if (otaState === "reboot_required") return "Image Installed!"
++                    if (otaState === "error") return "Update Failed"
++                    return "Image OTA Update"
 +                }
 +            }
 +
@@ -216,15 +212,58 @@ index 0000000..f92415c
 +                anchors.horizontalCenter: parent.horizontalCenter
 +                width: parent.width * 0.82
 +                horizontalAlignment: Text.AlignHCenter
-+                font.pixelSize: Dims.h(3.5)
++                font.pixelSize: Dims.h(3.2)
 +                opacity: 0.85
 +                wrapMode: Text.WordWrap
 +                text: statusMessage
 +            }
 +
++            // Source selection card
++            Item {
++                visible: otaState === "idle" || otaState === "error"
++                width: parent.width
++                height: Dims.h(11)
++
++                Rectangle {
++                    anchors.centerIn: parent
++                    width: parent.width * 0.85
++                    height: parent.height
++                    radius: Dims.h(1.8)
++                    color: "black"
++                    opacity: 0.35
++
++                    MouseArea {
++                        anchors.fill: parent
++                        onClicked: root.cycleSource()
++                    }
++
++                    Column {
++                        anchors.centerIn: parent
++                        width: parent.width * 0.9
++                        spacing: Dims.h(0.4)
++
++                        Label {
++                            anchors.horizontalCenter: parent.horizontalCenter
++                            font.pixelSize: Dims.h(2.8)
++                            font.bold: true
++                            text: "Source: " + sources[sourceIndex].name
++                        }
++                        Label {
++                            anchors.horizontalCenter: parent.horizontalCenter
++                            width: parent.width
++                            horizontalAlignment: Text.AlignHCenter
++                            font.pixelSize: Dims.h(2.2)
++                            opacity: 0.75
++                            elide: Text.ElideMiddle
++                            text: imageSource
++                        }
++                    }
++                }
++            }
++
 +            // Progress Bar
 +            Item {
-+                visible: otaState === "upgrading" || otaState === "checking"
++                visible: otaState === "downloading" || otaState === "syncing"
 +                width: parent.width
 +                height: Dims.h(3.5)
 +
@@ -255,25 +294,21 @@ index 0000000..f92415c
 +                    anchors.centerIn: parent
 +                    width: parent.width * 0.75
 +                    height: Dims.h(7.5)
-+                    visible: otaState !== "upgrading" && otaState !== "checking"
++                    visible: otaState !== "downloading" && otaState !== "syncing"
 +                    text: {
-+                        if (otaState === "available") return "Install Update"
-+                        if (otaState === "up_to_date") return "Check Again"
 +                        if (otaState === "reboot_required") return "Reboot Now"
 +                        if (otaState === "error") return "Retry"
-+                        return "Check for Updates"
++                        return "Install Image OTA"
 +                    }
 +                    onClicked: {
-+                        if (otaState === "available") {
-+                            remorse.action = "Installing update"
-+                            remorse.callback = function() { otaDBus.typedCall("StartUpgrade", []) }
-+                            remorse.start()
-+                        } else if (otaState === "reboot_required") {
++                        if (otaState === "reboot_required") {
 +                            remorse.action = "Rebooting watch"
 +                            remorse.callback = function() { otaDBus.typedCall("Reboot", []) }
 +                            remorse.start()
 +                        } else {
-+                            otaDBus.typedCall("CheckForUpdates", [])
++                            remorse.action = "Starting Image OTA"
++                            remorse.callback = function() { otaDBus.typedCall("StartImageUpdate", [{ type: "s", value: imageSource }]) }
++                            remorse.start()
 +                        }
 +                    }
 +                }

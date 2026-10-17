@@ -29,7 +29,7 @@ SYSTEMD_SERVICE:${PN} = "asteroid-otad.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 
 DEPENDS += "qml-asteroid asteroid-generate-desktop-native qttools-native qtdeclarative-native qtbase"
-RDEPENDS:${PN} += "qml-asteroid opkg systemd"
+RDEPENDS:${PN} += "qml-asteroid rsync systemd"
 
 FILES:${PN} += " \
     ${bindir}/${PN} \

@@ -3,7 +3,9 @@
 #include <QObject>
 #include <QStringList>
 #include <QProcess>
-#include <QTimer>
+#include <QFile>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 
 class OTADaemon : public QObject
 {
@@ -17,15 +19,18 @@ public:
     bool initDBus();
 
 public Q_SLOTS:
-    Q_SCRIPTABLE void CheckForUpdates();
-    Q_SCRIPTABLE void StartUpgrade();
+    Q_SCRIPTABLE void SetImageSource(const QString &source);
+    Q_SCRIPTABLE QString GetImageSource() const;
+    Q_SCRIPTABLE QString GetDefaultImageSource() const;
+    Q_SCRIPTABLE QString GetMachineName() const;
+    Q_SCRIPTABLE void StartImageUpdate(const QString &source = QString());
+    Q_SCRIPTABLE void CancelUpdate();
     Q_SCRIPTABLE void Reboot();
+
     Q_SCRIPTABLE QString GetState() const;
     Q_SCRIPTABLE QString GetStatusMessage() const;
     Q_SCRIPTABLE int GetProgress() const;
     Q_SCRIPTABLE QString GetCurrentStep() const;
-    Q_SCRIPTABLE int GetUpgradableCount() const;
-    Q_SCRIPTABLE QStringList GetUpgradablePackages() const;
     Q_SCRIPTABLE int GetBatteryLevel() const;
     Q_SCRIPTABLE bool IsCharging() const;
     Q_SCRIPTABLE bool IsNetworkAvailable() const;
@@ -35,36 +40,46 @@ Q_SIGNALS:
     Q_SCRIPTABLE void stateChanged(const QString &newState);
     Q_SCRIPTABLE void statusMessageChanged(const QString &message);
     Q_SCRIPTABLE void progressChanged(int percent, const QString &step);
-    Q_SCRIPTABLE void checkFinished(int count, const QStringList &packages, const QString &error);
-    Q_SCRIPTABLE void upgradeFinished(bool success, const QString &error);
+    Q_SCRIPTABLE void imageSourceChanged(const QString &newSource);
+    Q_SCRIPTABLE void updateFinished(bool success, const QString &error);
 
 private Q_SLOTS:
-    void handleUpdateFinished(int exitCode, QProcess::ExitStatus exitStatus);
-    void handleListFinished(int exitCode, QProcess::ExitStatus exitStatus);
-    void handleUpgradeFinished(int exitCode, QProcess::ExitStatus exitStatus);
-    void handleUpgradeOutput();
+    void handleDownloadProgress(qint64 received, qint64 total);
+    void handleDownloadFinished();
+    void handleSyncFinished(int exitCode, QProcess::ExitStatus exitStatus);
+    void handleSyncOutput();
 
 private:
     void setState(const QString &newState);
     void setStatusMessage(const QString &msg);
     void setProgress(int percent, const QString &step);
 
-    bool checkPreflightForUpdate();
-    bool checkPreflightForUpgrade();
+    void detectMachineName();
     void querySystemStats();
+    bool checkPreflight(bool isRemote);
+
+    void startDownload(const QUrl &url);
+    void startMountAndSync(const QString &imagePath);
+    void cleanupMount();
 
     QString m_state;
     QString m_statusMessage;
     int m_progress;
     QString m_currentStep;
-    int m_upgradableCount;
-    QStringList m_upgradablePackages;
+    QString m_imageSource;
+    QString m_machineName;
 
     int m_batteryLevel;
     bool m_isCharging;
     bool m_networkAvailable;
     QString m_networkType;
 
-    QProcess *m_process;
-    QString m_collectedOutput;
+    QNetworkAccessManager *m_netManager;
+    QNetworkReply *m_downloadReply;
+    QFile *m_tempFile;
+    QString m_imageFilePath;
+    QString m_mountPoint;
+    bool m_isTempFile;
+
+    QProcess *m_syncProcess;
 };
