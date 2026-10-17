@@ -66,6 +66,7 @@ in
             "eos"
             "seluna"
             "solios"
+            "emulator-aarch64"
           ]
         )
         [
@@ -162,6 +163,7 @@ in
             "eos"
             "seluna"
             "solios"
+            "emulator-aarch64"
           ]
         )
         {

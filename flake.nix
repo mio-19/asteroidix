@@ -68,6 +68,18 @@
               exec env REPO_ROOT="$PWD" ${./scripts/run-emulator.sh} "$@"
             '';
           };
+          emulatorAarch64 = pkgs.writeShellApplication {
+            name = "emulator-aarch64";
+            runtimeInputs = with pkgs; [
+              coreutils
+              curl
+              findutils
+              qemu
+            ];
+            text = ''
+              exec env REPO_ROOT="$PWD" ${./scripts/run-emulator-aarch64.sh} "$@"
+            '';
+          };
           updatePrefetchLock = pkgs.writeShellApplication {
             name = "update-prefetch-lock";
             runtimeInputs = with pkgs; [
@@ -122,12 +134,15 @@
         {
           inherit
             emulator
+            emulatorAarch64
             updatePrefetchLock
             updateLayers
             pushApp
             setupWatchSsh
             ;
           run-emulator = emulator;
+          "emulator-aarch64" = emulatorAarch64;
+          "run-emulator-aarch64" = emulatorAarch64;
           "update-prefetch-lock" = updatePrefetchLock;
           "update-layers" = updateLayers;
           "push-app" = pushApp;
@@ -170,6 +185,14 @@
           run-emulator = {
             type = "app";
             program = lib.getExe tools.emulator;
+          };
+          emulator-aarch64 = {
+            type = "app";
+            program = lib.getExe tools.emulatorAarch64;
+          };
+          run-emulator-aarch64 = {
+            type = "app";
+            program = lib.getExe tools.emulatorAarch64;
           };
           update-prefetch-lock = {
             type = "app";

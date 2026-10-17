@@ -9,6 +9,7 @@ let
     "catfish"
     "dory"
     "emulator"
+    "emulator-aarch64"
     "eos"
     "firefish"
     "harmony"
@@ -47,6 +48,7 @@ let
     "seluna"
     "solios"
     "medaka"
+    "emulator-aarch64"
   ] nightlyMachines;
 in
 {

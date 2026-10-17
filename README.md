@@ -353,11 +353,52 @@ The script transfers the package to `/tmp` and executes `opkg --force-reinstall 
 
 ## Running the emulator (macOS & Linux)
 
-`asteroidix` includes cross-platform support for running AsteroidOS inside QEMU, working natively on macOS (Darwin, including Apple Silicon `aarch64-darwin` and Intel `x86_64-darwin`) as well as Linux.
+`asteroidix` supports two emulator targets inside QEMU:
+1. **`emulator`** (x86_64): The upstream AsteroidOS emulator. Zero-configuration with automatic downloading and caching of upstream AsteroidOS nightly x86 binaries.
+2. **`emulator-aarch64`** (AArch64 / ARM64): Native hardware-virtualized AsteroidOS emulator using Apple's Hypervisor framework (`-accel hvf -cpu host`) on Apple Silicon Macs and KVM on AArch64 Linux for near bare-metal performance.
 
-### Quick launch
+### Why is the standard `emulator` x86_64 and slow on Apple Silicon Macs?
 
-Run the emulator using the Nix flake app (which automatically provides QEMU and dependencies):
+- **Upstream architecture**: Upstream AsteroidOS defines its emulator machine configuration around OpenEmbedded's `qemux86` target (`meta-smartwatch/meta-emulator/conf/machine/emulator.conf` requires `qemux86.conf`).
+- **Official nightlies**: Upstream AsteroidOS only compiles and distributes nightly emulator binaries for x86 (`bzImage-emulator.bin` and `asteroid-image-emulator.rootfs.ext4` at `release.asteroidos.org/nightlies/emulator/`).
+- **Apple Silicon limitation**: Apple Silicon hardware does not have x86 virtualization extensions, and macOS's Hypervisor Framework (`-accel hvf`) only virtualizes the host architecture (`aarch64`).
+- **TCG software emulation & LLVMpipe**: On Apple Silicon macOS (`aarch64-darwin`), QEMU cannot use HVF for x86 and must fall back to Tiny Code Generator (TCG) software CPU emulation (`-accel tcg,thread=multi`). In addition, the AsteroidOS compositor (Lipstick / Qt 6) uses Mesa's LLVMpipe software rasterizer to render graphics inside the emulated x86 CPU. This double-layer software emulation causes high CPU usage, slow boot times (~60-120s), and sluggish frame rates.
+
+---
+
+### Hardware-Virtualized AArch64 Emulator (`emulator-aarch64`)
+
+For native performance on Apple Silicon Darwin (`aarch64-darwin`) and AArch64 Linux, use `emulator-aarch64`:
+
+```bash
+# Launch the hardware-accelerated AArch64 emulator
+nix run .#emulator-aarch64
+
+# Or directly via the helper script:
+./scripts/run-emulator-aarch64.sh
+```
+
+- **Apple Silicon macOS (`aarch64-darwin`)**: Leverages Apple Hypervisor Framework (`-accel hvf -cpu host`) on the `virt,highmem=on` machine type with VirtIO GPU (`virtio-gpu-pci`), VirtIO block storage, USB tablet pointer, and Cocoa display (`-display cocoa`) for instant booting and smooth 60 FPS graphics.
+- **AArch64 Linux**: Uses KVM (`-enable-kvm -cpu host`).
+- **Building the AArch64 image locally**:
+  ```bash
+  # Build nightly patched AArch64 emulator image
+  nix build .#emulator-aarch64-nightly-patched-img
+
+  # Or nightly official
+  nix build .#emulator-aarch64-nightly-official-img
+  ```
+  The build produces `Image` and `asteroid-image-emulator-aarch64.rootfs.ext4` in `./result/images/`, which `run-emulator-aarch64` auto-detects and boots.
+- **Running with custom images**:
+  ```bash
+  nix run .#emulator-aarch64 -- --kernel ./path/to/Image --rootfs ./path/to/rootfs.ext4
+  ```
+
+---
+
+### Standard x86_64 Emulator (`emulator`)
+
+Run the legacy x86_64 AsteroidOS emulator with zero configuration (auto-downloads upstream nightly binaries if no local build is present, and wraps QEMU):
 
 ```bash
 # Launch via Nix flake app:
@@ -370,39 +411,37 @@ nix run .#emulator
 - **Zero-setup discovery**: If no local build exists in `./result/images/`, `run-emulator` automatically downloads and caches the latest upstream AsteroidOS nightly emulator binaries (`bzImage-emulator.bin` and `asteroid-image-emulator.rootfs.ext4`) into `~/.cache/asteroidix/emulator/`.
 - **Local build priority**: If you built an emulator image locally (`nix build .#emulator-img`), it automatically detects and launches your compiled kernel and rootfs from `./result/images/`.
 
-### Options & flags
+### Options & flags (both emulators)
+
+Both `run-emulator` and `run-emulator-aarch64` accept identical options:
 
 ```bash
 # Run with VNC display server (built-in macOS Screen Sharing: open vnc://localhost:5900):
-nix run .#emulator -- --vnc :0
+nix run .#emulator-aarch64 -- --vnc :0
 
 # Run in snapshot mode (disposable session; disk writes are not saved):
-nix run .#emulator -- --snapshot
+nix run .#emulator-aarch64 -- --snapshot
 
 # Run headless (serial console in terminal only):
-nix run .#emulator -- --nographic
+nix run .#emulator-aarch64 -- --nographic
 
 # Allocate custom CPU cores (default: auto, up to 4 cores):
-nix run .#emulator -- --cpus 4
+nix run .#emulator-aarch64 -- --cpus 4
 
 # Run using a specific built image directory:
-nix run .#emulator -- --image-dir ./result/images
+nix run .#emulator-aarch64 -- --image-dir ./result/images
 
 # Forward guest SSH to a custom host port (default is 2222):
-nix run .#emulator -- --port 2223
-
-# Force redownload of the latest upstream nightly image:
-nix run .#emulator -- --fetch-nightly
-
-# Point to custom kernel and rootfs binaries:
-nix run .#emulator -- --kernel ./path/to/bzImage.bin --rootfs ./path/to/rootfs.ext4
+nix run .#emulator-aarch64 -- --port 2223
 ```
 
 ### Platform-specific details
 
-- **macOS (Darwin Apple Silicon `aarch64-darwin`)**: Uses QEMU multi-threaded TCG (`-accel tcg,thread=multi -smp 4`) to execute the x86_64 guest on ARM64 host, displaying the 800x800 watch interface via the native macOS Cocoa window (`-display cocoa`) or VNC (`--vnc :0`), with custom EDID virtio-vga (`-device virtio-vga,xres=800,yres=800`) and absolute touchscreen coordinates via `-usb -device usb-tablet`. Kernel boot messages and login appear directly in the GUI window (`console=tty0 console=ttyS0`), followed by the watchface.
-- **macOS (Darwin Intel `x86_64-darwin`)**: Uses `-accel hvf -accel tcg,thread=multi` with multi-core SMP for hardware acceleration.
-- **Linux (`x86_64-linux`)**: Uses KVM (`-enable-kvm`) when `/dev/kvm` is accessible, with support for Virgil3D hardware rendering (`-device virtio-vga-gl -display sdl,gl=on`) or `virtio-vga` fallback.
+- **macOS (Darwin Apple Silicon `aarch64-darwin`)**:
+  - `emulator-aarch64`: Uses native Apple Hypervisor Framework (`-accel hvf -cpu host`) on `virt` machine for native execution speed.
+  - `emulator`: Uses QEMU multi-threaded TCG (`-accel tcg,thread=multi -smp 4`) to execute the x86_64 guest on ARM64 host.
+- **macOS (Darwin Intel `x86_64-darwin`)**: Uses `-accel hvf -accel tcg,thread=multi` with multi-core SMP for x86_64 guest hardware acceleration.
+- **Linux (`x86_64-linux` / `aarch64-linux`)**: Uses KVM (`-enable-kvm`) when `/dev/kvm` is accessible.
 
 ### SSH and app development on the emulator
 
