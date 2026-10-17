@@ -47,8 +47,8 @@
     owner = "AsteroidOS";
     repo = "meta-asteroid";
     ref = "master";
-    rev = "c5b82318a9d065f37d7f4ec90e272721288797b5";
-    hash = "sha256-LCNYJI/cTBnNz4iMGO1epbRzMt+9rD3ciaOmUGp03GA=";
+    rev = "2ba08ef43503e4cf681c7623a1ea8dace54bfa0e";
+    hash = "sha256-nIe24BJxlblRK8vTOyJxfRB74l0uVXXCWb1Ys75wmdM=";
     relpath = "src/meta-asteroid";
   };
 
