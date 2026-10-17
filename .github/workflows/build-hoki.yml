@@ -1,6 +1,7 @@
 name: Build Hoki Image (Official Way)
 
 on:
+  push:
   workflow_dispatch:
     inputs:
       variant:
@@ -24,6 +25,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-hoki:
@@ -146,7 +151,7 @@ jobs:
           retention-days: 14
 
       - name: Create GitHub Release
-        if: ${{ inputs.create_release }}
+        if: ${{ github.event_name == 'workflow_dispatch' && (inputs.create_release == true || inputs.create_release == 'true') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
