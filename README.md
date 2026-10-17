@@ -39,6 +39,7 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 - Find phone, on every nightly-patched machine: a launcher app that asks the paired phone to ring. See below.
 - Community applications on every nightly-patched machine: `unofficial-watchfaces`, `asteroid-blaster`, `asteroid-dodger`, `asteroid-health`, `asteroid-map`, `asteroid-qmltester`, `asteroid-skedaddle`, and `asteroid-weatherfetch`. See below.
 - Smartwatch Web Browser (`asteroid-browser`): a lightweight native Qt 6 rich-text web browser app designed for watch screens (32-bit ARM userspace across all watch targets including hoki, aurora, eos, solios, and seluna).
+- Tack Metronome (`asteroid-tack`): a precision metronome application for AsteroidOS ported from the Wear OS metronome [Tack Android](https://github.com/patzly/tack-android) by Patrick Zedler.
 - Ladybird Browser (`ladybird`): standalone modern web browser engine ported to AsteroidOS with 32-bit ARM userspace support (via LibGC cage scaling and AK 32-bit support).
 - Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), and Blood Oxygen (SpO2). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
@@ -115,6 +116,19 @@ Every nightly-patched image bundles the full suite of popular AsteroidOS communi
 - **`asteroid-qmltester`**: Development and testing utility allowing developers to quickly test and inspect QML designs directly on the watch.
 - **`asteroid-skedaddle`**: Outdoor exercise and running log app tracking distance, time, and heart rate with industry-standard GPX file export and eSpeak voice feedback.
 - **`asteroid-weatherfetch`**: Background and CLI utility to fetch online weather forecast data for the AsteroidOS Weather application.
+
+### Tack Metronome (`asteroid-tack`)
+
+A precision metronome application for AsteroidOS, ported from the open-source Wear OS metronome [Tack Android](https://github.com/patzly/tack-android) by Patrick Zedler:
+
+- **Precision Timing**: C++ backend engine using `Qt::PreciseTimer` (`timerfd` / `CLOCK_MONOTONIC`) for sub-millisecond beat accuracy without UI event loop lag.
+- **Hardware Haptics**: Direct kernel sysfs writing to `/sys/class/timed_output/vibrator/enable` on Fossil Gen 6 (`hoki`) and Qualcomm platforms for zero-latency wrist vibration pulses (distinct durations for Strong downbeats, Normal beats, and Subdivisions).
+- **Audio Integration**: Authentic 48 kHz mono WAV sound packs (*Wood*, *Sine*, *Mechanical*, *Hands*) mapped to AsteroidOS Non-Graphical Feedback Daemon (`ngfd`) events.
+- **Ergonomic Round Watch UI**: Central interactive tempo card, live beat dot row with accent-colored pulses, step modifiers (-10, -5, +5, +10, -1, +1), tap tempo detector, meter & accent configuration (Strong / Normal / Sub / Muted), subdivisions, presets/bookmarks, and screen flash.
+- **Standalone IPK Deployment**: Can be compiled and deployed individually without reflashing using `push-app`:
+  ```bash
+  nix run .#push-app -- --package asteroid-tack
+  ```
 
 ### Web browsers
 
