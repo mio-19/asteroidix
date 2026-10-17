@@ -174,8 +174,74 @@ EOF
   fi
 }
 
+update_asteroid() {
+  local channel="$1"
+  local asteroid_file="${repo_root}/modules/layers/asteroid.nix"
+  if [ ! -f "$asteroid_file" ]; then
+    return 0
+  fi
+  if [ "${#selected[@]}" -gt 0 ] && [ "${selected["asteroid"]+x}" != "x" ]; then
+    return 0
+  fi
+
+  local tmp_json
+  tmp_json="$(mktemp)"
+  nix eval --json --file "$asteroid_file" > "$tmp_json"
+  local owner repo ref rev hash
+  owner="$(jq -r --arg c "$channel" '.[$c].owner // ""' "$tmp_json")"
+  repo="$(jq -r --arg c "$channel" '.[$c].repo // ""' "$tmp_json")"
+  ref="$(jq -r --arg c "$channel" '.[$c].ref // ""' "$tmp_json")"
+
+  local source_url="https://github.com/${owner}/${repo}.git"
+  echo "Updating ${channel}/asteroid (${source_url} @ ${ref})" >&2
+  local new_rev
+  new_rev="$(resolve_rev "$source_url" "$ref")" || {
+    rm -f "$tmp_json"
+    return 0
+  }
+  local new_hash
+  new_hash="$(prefetch_hash "$owner" "$repo" "" "$new_rev")"
+  if [[ "$new_hash" =~ ^sha256- ]]; then
+    local updated_json
+    updated_json="$(jq --arg c "$channel" --arg rev "$new_rev" --arg hash "$new_hash" '
+      .[$c].rev = $rev | .[$c].hash = $hash
+    ' "$tmp_json")"
+    rm -f "$tmp_json"
+
+    local nightly_rev nightly_hash stable_rev stable_hash
+    nightly_rev="$(jq -r '.nightly.rev' <<< "$updated_json")"
+    nightly_hash="$(jq -r '.nightly.hash' <<< "$updated_json")"
+    stable_rev="$(jq -r '.stable.rev' <<< "$updated_json")"
+    stable_hash="$(jq -r '.stable.hash' <<< "$updated_json")"
+
+    cat > "$asteroid_file" <<EOF
+{
+  nightly = {
+    owner = "AsteroidOS";
+    repo = "asteroid";
+    ref = "master";
+    rev = "${nightly_rev}";
+    hash = "${nightly_hash}";
+  };
+
+  stable = {
+    owner = "AsteroidOS";
+    repo = "asteroid";
+    ref = "2.0";
+    rev = "${stable_rev}";
+    hash = "${stable_hash}";
+  };
+}
+EOF
+    echo "Updated ${asteroid_file}"
+  else
+    rm -f "$tmp_json"
+  fi
+}
+
 known=0
 for channel in "${channels[@]}"; do
+  update_asteroid "$channel"
   if update_channel "$channel" "$@"; then
     known=1
   else

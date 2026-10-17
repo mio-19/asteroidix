@@ -135,6 +135,31 @@ nix build github:mio-19/asteroidix#aurora-nightly-official-img
 nix build github:mio-19/asteroidix#aurora-nightly-patched-img
 ```
 
+### Official Build Way Source Trees (without Nix build patches)
+
+To build AsteroidOS using the [official instructions](https://wiki.asteroidos.org/index.php/Building_AsteroidOS) (e.g. on a standard Ubuntu/Debian host or inside the official Docker/Podman container) rather than the Nix sandbox derivation, `asteroidix` exposes 4 complete source checkout derivations tracking nightly and stable, both official and patched, with **all Nix sandbox build patches omitted**:
+
+- `source-nightly-official`: AsteroidOS master (Qt 6 / Whinlatter) with official upstream layers.
+- `source-nightly-patched`: AsteroidOS master with custom applications, community apps/watchfaces, hardware enablement, and SW5100 BSP definitions in `src/`, with `prepare-build.sh` configured to include them in `bblayers.conf`.
+- `source-stable-official`: AsteroidOS 2.1 (git branch 2.0, Qt 5 / Walnascar) with official upstream layers.
+- `source-stable-patched`: AsteroidOS 2.1 with patched build configuration.
+
+```bash
+# Build the source checkout derivation
+nix build github:mio-19/asteroidix#source-nightly-official
+nix build github:mio-19/asteroidix#source-nightly-patched
+nix build github:mio-19/asteroidix#source-stable-official
+nix build github:mio-19/asteroidix#source-stable-patched
+
+# Build using the official method:
+cp -rL result ~/asteroid-src && chmod -R u+w ~/asteroid-src
+cd ~/asteroid-src
+source ./prepare-build.sh hoki   # or dory, aurora, eos, etc.
+bitbake asteroid-image
+```
+
+Aliases like `#nightly-patched-source` and `#src-nightly-patched` are also available.
+
 ### Emulator
 
 Run the AsteroidOS emulator with zero configuration (auto-downloads upstream nightly binaries if no local build is present, and wraps QEMU with Virgil3D acceleration):

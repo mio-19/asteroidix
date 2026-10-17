@@ -196,6 +196,36 @@
           pkgs = nixpkgs.legacyPackages.${system};
           isLinux = lib.elem system linuxSystems;
           tools = mkTools pkgs;
+          mkSource = variant: self.lib.asteroidixSource { inherit system variant; };
+
+          sourcePackages = {
+            source-nightly-official = mkSource "nightly-official";
+            source-nightly-patched = mkSource "nightly-patched";
+            source-stable-official = mkSource "stable-official";
+            source-stable-patched = mkSource "stable-patched";
+
+            nightly-official-source = mkSource "nightly-official";
+            nightly-patched-source = mkSource "nightly-patched";
+            stable-official-source = mkSource "stable-official";
+            stable-patched-source = mkSource "stable-patched";
+
+            nightly-official-src = mkSource "nightly-official";
+            nightly-patched-src = mkSource "nightly-patched";
+            stable-official-src = mkSource "stable-official";
+            stable-patched-src = mkSource "stable-patched";
+
+            src-nightly-official = mkSource "nightly-official";
+            src-nightly-patched = mkSource "nightly-patched";
+            src-stable-official = mkSource "stable-official";
+            src-stable-patched = mkSource "stable-patched";
+
+            source = mkSource "nightly-patched";
+            src = mkSource "nightly-patched";
+            source-official = mkSource "nightly-official";
+            source-patched = mkSource "nightly-patched";
+            official-source = mkSource "nightly-official";
+            patched-source = mkSource "nightly-patched";
+          };
 
           linuxPackages =
             if !isLinux then
@@ -244,11 +274,31 @@
               };
         in
         tools
+        // sourcePackages
         // linuxPackages
         // (lib.optionalAttrs (!isLinux) {
           default = tools.emulator;
         })
       );
+
+      sources = forAllSystems (system: {
+        nightly-official = self.lib.asteroidixSource {
+          inherit system;
+          variant = "nightly-official";
+        };
+        nightly-patched = self.lib.asteroidixSource {
+          inherit system;
+          variant = "nightly-patched";
+        };
+        stable-official = self.lib.asteroidixSource {
+          inherit system;
+          variant = "stable-official";
+        };
+        stable-patched = self.lib.asteroidixSource {
+          inherit system;
+          variant = "stable-patched";
+        };
+      });
 
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
     };

@@ -234,6 +234,11 @@ in
         export MACHINE=${config.machine}
         ${env}/bin/asteroidix-build
       '';
+
+      source = pkgs.callPackage ../lib/mk-source.nix { } {
+        inherit (config) variant;
+      };
+      sourceTree = source;
     };
   };
 }

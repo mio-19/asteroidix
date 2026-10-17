@@ -66,6 +66,8 @@ in
     packagesDir
     prefetchedSources
     debugBuildScript
+    source
+    sourceTree
     ;
 
   # robotnix-compatible alias

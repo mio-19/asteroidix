@@ -17,4 +17,16 @@
         lib
         ;
     };
+
+  asteroidixSource =
+    {
+      system ? null,
+      pkgs ? if system != null then nixpkgs.legacyPackages.${system} else import nixpkgs { },
+      variant ? "nightly-patched",
+    }:
+    pkgs.callPackage ./mk-source.nix { } {
+      inherit variant;
+    };
+
+  mkAsteroidSource = pkgs: variant: pkgs.callPackage ./mk-source.nix { } { inherit variant; };
 }
