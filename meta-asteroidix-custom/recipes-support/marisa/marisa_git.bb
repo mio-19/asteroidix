@@ -7,7 +7,6 @@ SRC_URI = "git://github.com/s-yata/marisa-trie.git;protocol=https;branch=master"
 SRCREV = "38180f6d3653cd2c88dd7047711e75f48f84527c"
 PV = "0.2.6+git"
 
-S = "${WORKDIR}/git"
 
 inherit cmake pkgconfig
 

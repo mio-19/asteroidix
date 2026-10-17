@@ -9,7 +9,6 @@ SRC_URI = "git://github.com/rime/librime.git;protocol=https;branch=master;nobran
 SRCREV = "c7ab6390c143a11d670f3add41218111edb883c9"
 PV = "1.12.0"
 
-S = "${WORKDIR}/git"
 
 inherit cmake pkgconfig
 
