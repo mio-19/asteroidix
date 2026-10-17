@@ -28,7 +28,6 @@ DEPENDS = " \
     libpng \
     jpeg \
     libxml2 \
-    ffmpeg \
     fontconfig \
     harfbuzz \
     rust-native \
