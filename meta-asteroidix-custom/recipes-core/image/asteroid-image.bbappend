@@ -10,4 +10,7 @@ IMAGE_INSTALL:append:hoki = "${@' linux-wlan-modules-hoki wlan-firmware-hoki gns
 # Bluetooth internet sharing (PAN / tethering from phone)
 IMAGE_INSTALL:append = "${@' connman-client bluez5-testtools bluez5-noinst-tools python3-dbus asteroid-bt-pan' if d.getVar('ASTEROIDIX_PATCHED') == '1' else ''}"
 
+# Virtual keyboard, Wayland text-input, Ladybird browser, and librime CJK input method
+IMAGE_INSTALL:append = "${@' asteroid-virtualkeyboard qtvirtualkeyboard qtvirtualkeyboard-plugins qtvirtualkeyboard-qmlplugins ladybird marisa librime rime-data qtvirtualkeyboard-librime' if d.getVar('ASTEROIDIX_PATCHED') == '1' else ''}"
+
 

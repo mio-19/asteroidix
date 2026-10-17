@@ -1,0 +1,74 @@
+From 81fd9e3a0efaa6d510c2f91fa1b9487d8a4513ae Mon Sep 17 00:00:00 2001
+From: Florent Revest <revestflo@gmail.com>
+Date: Fri, 31 Jul 2026 16:08:10 +0000
+Subject: [PATCH] compositor: host the virtual keyboard and fit it to round
+ screens
+
+Qt6 removed client-side virtual keyboard support under Wayland, so add
+the keyboard to the compositor and let clients reach it over the Qt
+text-input protocol:
+
+- Register QWaylandQtTextInputMethodManager in the LipstickCompositor
+  constructor to advertise qt_text_input_method_v1.
+- Add a bottom-sliding InputPanel to the compositor scene. On round
+  screens it is inset to 86% width and centered so the top-row Q and P
+  keys stay inside the circle instead of being clipped by the corner mask.
+
+Upstream-Status: Backport [https://github.com/AsteroidOS/asteroid-launcher/commit/81fd9e3a0efaa6d510c2f91fa1b9487d8a4513ae]
+Signed-off-by: Florent Revest <revestflo@gmail.com>
+---
+ lipstick/src/compositor/lipstickcompositor.cpp |  3 +++
+ src/qml/compositor/compositor.qml              | 10 ++++++++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/lipstick/src/compositor/lipstickcompositor.cpp b/lipstick/src/compositor/lipstickcompositor.cpp
+index 0966dc76..046024b8 100644
+--- a/lipstick/src/compositor/lipstickcompositor.cpp
++++ b/lipstick/src/compositor/lipstickcompositor.cpp
+@@ -29,6 +29,7 @@
+ #include <private/qguiapplication_p.h>
+ #include <QtGui/qpa/qplatformintegration.h>
+ #include <QWaylandQuickShellSurfaceItem>
++#include <QWaylandQtTextInputMethodManager>
+ 
+ #include <mce/dbus-names.h>
+ #include <mce/mode-names.h>
+@@ -73,6 +74,8 @@ LipstickCompositor::LipstickCompositor()
+ 
+     m_gesturesManager = new AsteroidGesturesManager(this);
+ 
++    new QWaylandQtTextInputMethodManager(this);
++
+     setRetainedSelectionEnabled(true);
+ 
+     if (m_instance) qFatal("LipstickCompositor: Only one compositor instance per process is supported");
+diff --git a/src/qml/compositor/compositor.qml b/src/qml/compositor/compositor.qml
+index 3b663ea7..231f24d2 100644
+--- a/src/qml/compositor/compositor.qml
++++ b/src/qml/compositor/compositor.qml
+@@ -32,6 +32,7 @@
+ 
+ import QtQuick
+ import QtQuick.Window
++import QtQuick.VirtualKeyboard
+ import org.nemomobile.lipstick
+ import org.asteroid.controls
+ import org.asteroid.utils
+@@ -263,6 +264,15 @@ Item {
+         }
+     }
+ 
++    InputPanel {
++        id: inputPanel
++        z: 5
++        width: DeviceSpecs.hasRoundScreen ? Math.round(parent.width * 0.86) : parent.width
++        anchors.horizontalCenter: parent.horizontalCenter
++        y: active ? parent.height - height : parent.height
++        Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.InOutQuad } }
++    }
++
+     // Rounds off the corners of a round screen. The mask depends on nothing
+     // but the size of the screen, so rather than masking the whole screen
+     // again on every frame the system draws, it is rendered once into a
+-- 
+2.45.2

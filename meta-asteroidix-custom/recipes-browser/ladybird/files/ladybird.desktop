@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Ladybird
+Comment=Web Browser
+Exec=/usr/bin/ladybird-wrapper
+Icon=internet-web-browser
+Terminal=false
+Type=Application
+Categories=Network;WebBrowser;

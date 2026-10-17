@@ -1,0 +1,7 @@
+{
+    "IID": "org.qt-project.qt.virtualkeyboard.plugin/6.0",
+    "MetaData": {
+        "Name": "rime",
+        "InputMethod": "RimeInputMethod"
+    }
+}

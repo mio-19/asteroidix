@@ -43,6 +43,7 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 - BeatFork (`asteroid-beatfork`): a 3-in-1 audio utility for AsteroidOS featuring tap BPM detection with precision timing decay, a high-performance metronome with ngfd feedback and pulse ring animations, and a live sine synthesis tuning fork (G4 to Bb4).
 - 2048 Game (`asteroid-2048`): the classic sliding-tile puzzle game ported to Qt 6 for AsteroidOS smartwatches, featuring touch swipe gestures, persistent best scores, and responsive circular/square screen geometry.
 - Ladybird Browser (`ladybird`): standalone modern web browser engine ported to AsteroidOS with 32-bit ARM userspace support (via LibGC cage scaling and AK 32-bit support).
+- Virtual Keyboard & CJK Input Methods: on-screen virtual keyboard with round-display geometry in `asteroid-launcher`, Wayland text-input protocol integration for applications including Ladybird Browser, and Rime input engine (`librime`, `qtvirtualkeyboard-librime`, `rime-data`) with common Chinese input methods (Simplified Pinyin, Luna Pinyin, Double Pinyin, Wubi 86, and Stroke).
 - Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), Blood Oxygen (SpO2), Bluetooth Internet Sharing (PAN/tethering), and kernel security hardening (GrapheneOS linux-hardened exploit mitigations). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
 - Nix sandbox compatibility (across all builds):

@@ -1,0 +1,89 @@
+# Rime dictionary
+# encoding: utf-8
+
+---
+name: pinyin_simp
+version: "0.9"
+sort: by_weight
+use_preset_vocabulary: false
+...
+
+你好	ni hao	100
+你	ni	100
+好	hao	100
+我	wo	95
+我们	wo men	90
+他	ta	90
+他们	ta men	85
+她	ta	90
+它	ta	85
+的	de	100
+是	shi	95
+在	zai	90
+有	you	90
+个	ge	90
+人	ren	95
+这	zhe	90
+那	na	85
+中	zhong	90
+国	guo	90
+中国	zhong guo	95
+和	he	90
+要	yao	85
+大	da	85
+小	xiao	85
+多	duo	80
+少	shao	80
+看	kan	80
+吃	chi	80
+听	ting	80
+说	shuo	85
+写	xie	80
+读	du	80
+走	zou	80
+来	lai	85
+去	qu	85
+到	dao	85
+家	jia	85
+学	xue	80
+学校	xue xiao	85
+时	shi	85
+时间	shi jian	90
+天	tian	85
+天气	tian qi	90
+年	nian	85
+月	yue	85
+日	ri	85
+点	dian	85
+分	fen	80
+秒	miao	75
+表	biao	85
+手表	shou biao	95
+网	wang	80
+网络	wang luo	85
+览	lan	70
+浏览器	liu lan qi	90
+搜索	sou suo	90
+设置	she zhi	90
+系统	xi tong	90
+通知	tong zhi	90
+音乐	yin yue	85
+地图	di tu	85
+健康	jian kang	85
+心率	xin lv	85
+计步	ji bu	85
+闹钟	nao zhong	85
+秒表	miao biao	85
+计时器	ji shi qi	85
+蓝牙	lan ya	90
+连接	lian jie	85
+断开	duan kai	80
+电量	dian liang	85
+充电	chong dian	85
+屏幕	ping mu	85
+亮度	liang du	85
+声音	sheng yin	80
+震动	zhen dong	80
+飞行模式	fei xing mo shi	80
+AsteroidOS	asteroid	90
+Ladybird	ladybird	90

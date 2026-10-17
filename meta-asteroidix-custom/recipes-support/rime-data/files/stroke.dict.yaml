@@ -1,0 +1,45 @@
+# Rime dictionary
+# encoding: utf-8
+
+---
+name: stroke
+version: "0.2"
+sort: by_weight
+use_preset_vocabulary: false
+...
+
+一	h	100
+二	hh	90
+三	hhh	80
+十	hs	85
+人	pn	95
+大	hpn	90
+天	hhpn	85
+小	spn	85
+中	shszh	85
+日	shzh	80
+月	pshz	80
+水	szpn	80
+火	dnsp	80
+土	hsh	80
+木	hspn	80
+山	shsz	80
+手	ppsh	80
+心	dzzd	80
+你	pshspn	100
+好	zhpsh	100
+我	ppshsn	95
+他	pshzh	90
+她	zhpshzh	90
+是	shzhhhpn	95
+的	pshzh	95
+在	hspzh	90
+了	zhs	90
+有	hpshz	90
+和	pshsz	85
+这	dphn	85
+那	zhszh	85
+点	shzh	80
+时	shzhh	80
+分	pnh	80
+秒	pshzh	80

@@ -1,0 +1,4 @@
+#!/bin/sh
+export QT_QPA_PLATFORM=wayland
+export QT_IM_MODULE=wayland
+exec /usr/bin/Ladybird "$@"

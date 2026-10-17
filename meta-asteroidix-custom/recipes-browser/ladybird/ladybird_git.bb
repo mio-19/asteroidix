@@ -11,6 +11,8 @@ COMPATIBLE_MACHINE = "aurora|eos|solios|seluna|hoki"
 SRC_URI = " \
     git://github.com/LadybirdBrowser/ladybird.git;protocol=https;branch=master \
     file://0001-Support-32-bit-ARM-in-AK-and-LibGC.patch \
+    file://ladybird.desktop \
+    file://ladybird-wrapper \
 "
 SRCREV = "b90af890b56cbd51c452d929fe71abcb8adaa36f"
 
@@ -40,4 +42,16 @@ EXTRA_OECMAKE += " \
     -DCMAKE_BUILD_TYPE=Release \
 "
 
-FILES:${PN} += "${bindir}/Ladybird ${libexecdir}/ ${datadir}/ladybird/"
+do_install:append() {
+    install -d ${D}${bindir} ${D}${datadir}/applications
+    WRAPPER_SRC="${UNPACKDIR}/ladybird-wrapper"
+    [ -f "$WRAPPER_SRC" ] || WRAPPER_SRC="${WORKDIR}/ladybird-wrapper"
+    DESKTOP_SRC="${UNPACKDIR}/ladybird.desktop"
+    [ -f "$DESKTOP_SRC" ] || DESKTOP_SRC="${WORKDIR}/ladybird.desktop"
+    install -m 0755 "$WRAPPER_SRC" ${D}${bindir}/ladybird-wrapper
+    install -m 0644 "$DESKTOP_SRC" ${D}${datadir}/applications/ladybird.desktop
+    ln -sf ladybird-wrapper ${D}${bindir}/ladybird
+}
+
+FILES:${PN} += "${bindir}/Ladybird ${bindir}/ladybird ${bindir}/ladybird-wrapper ${libexecdir}/ ${datadir}/ladybird/ ${datadir}/applications/"
+
