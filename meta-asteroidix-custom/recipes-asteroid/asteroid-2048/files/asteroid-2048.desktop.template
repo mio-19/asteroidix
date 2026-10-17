@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Categories=Applications;
+Exec=asteroid-2048
+Icon=2048
+X-Asteroid-Center-Color=#4b45b9
+X-Asteroid-Outer-Color=#161537

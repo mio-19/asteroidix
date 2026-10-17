@@ -40,6 +40,8 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 - Community applications on every nightly-patched machine: `unofficial-watchfaces`, `asteroid-blaster`, `asteroid-dodger`, `asteroid-health`, `asteroid-map`, `asteroid-qmltester`, `asteroid-skedaddle`, and `asteroid-weatherfetch`. See below.
 - Smartwatch Web Browser (`asteroid-browser`): a lightweight native Qt 6 rich-text web browser app designed for watch screens (32-bit ARM userspace across all watch targets including hoki, aurora, eos, solios, and seluna).
 - Tack Metronome (`asteroid-tack`): a precision metronome application for AsteroidOS ported from the Wear OS metronome [Tack Android](https://github.com/patzly/tack-android) by Patrick Zedler.
+- BeatFork (`asteroid-beatfork`): a 3-in-1 audio utility for AsteroidOS featuring tap BPM detection with precision timing decay, a high-performance metronome with ngfd feedback and pulse ring animations, and a live sine synthesis tuning fork (G4 to Bb4).
+- 2048 Game (`asteroid-2048`): the classic sliding-tile puzzle game ported to Qt 6 for AsteroidOS smartwatches, featuring touch swipe gestures, persistent best scores, and responsive circular/square screen geometry.
 - Ladybird Browser (`ladybird`): standalone modern web browser engine ported to AsteroidOS with 32-bit ARM userspace support (via LibGC cage scaling and AK 32-bit support).
 - Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), Blood Oxygen (SpO2), and Bluetooth Internet Sharing (PAN/tethering). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
@@ -135,6 +137,32 @@ A precision metronome application for AsteroidOS, ported from the open-source We
 - **Standalone IPK Deployment**: Can be compiled and deployed individually without reflashing using `push-app`:
   ```bash
   nix run .#push-app -- --package asteroid-tack
+  ```
+
+### BeatFork (`asteroid-beatfork`)
+
+A 3-in-1 musician audio utility for AsteroidOS smartwatches created by [moWerk](https://github.com/moWerk/asteroid-beatfork):
+
+- **Tap BPM Detection**: Interactive tap tempo detector with real-time interval averaging, drift decay, timing offset adjustments, and tap history statistics.
+- **Visual & Haptic Metronome**: Configurable BPM (40–208), multi-palette pulse ring animations, and low-latency audio ticks powered by the AsteroidOS Non-Graphical Feedback Daemon (`ngfd`).
+- **Live Synthesized Tuning Fork**: Pure real-time sine wave audio generation across standard reference pitches (392 Hz G4 to 452 Hz Bb4, including 432 Hz and 440 Hz Standard A4) via raised-cosine enveloped `QAudioSink` PCM synthesis.
+- **Display Blanking Control**: Integrates `Nemo.KeepAlive` `DisplayBlanking` to hold the screen awake while metronome or tuning tones are actively sounding.
+- **Standalone IPK Deployment**: Can be compiled and deployed individually without reflashing using `push-app`:
+  ```bash
+  nix run .#push-app -- --package asteroid-beatfork
+  ```
+
+### 2048 Game (`asteroid-2048`)
+
+The classic 2048 sliding-tile puzzle game for AsteroidOS smartwatches, based on [MagneFire/asteroid-2048](https://github.com/MagneFire/asteroid-2048):
+
+- **Modernized Qt 6 Architecture**: Built on `AsteroidApp6` and modern Qt Quick without legacy Lipstick or Qt 5 dependencies.
+- **Round & Square Screen Geometry**: Dynamically calculates the maximum inscribed square on circular smartwatch displays (e.g. Fossil Gen 6, TicWatch Pro) while preserving dedicated areas for score and high-score cards.
+- **Touch & Gesture Controls**: Direct directional swipe recognition (Up, Down, Left, Right) designed to avoid triggering AsteroidOS edge gestures, plus arrow key support for emulator navigation.
+- **Persistent High Scores**: High scores persist across sessions using `Nemo.Configuration` (`/org/asteroidos/2048/bestScore`).
+- **Standalone IPK Deployment**: Can be compiled and deployed individually without reflashing using `push-app`:
+  ```bash
+  nix run .#push-app -- --package asteroid-2048
   ```
 
 ### Web browsers
