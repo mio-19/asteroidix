@@ -113,7 +113,7 @@ diff -Naur a/src/appbridgeservice.h b/src/appbridgeservice.h
 +    AppBridgeRxChrc(QDBusConnection bus, int index, Service *service, AppBridgeApi *api);
 +
 +public slots:
-+    void WriteValue(const QByteArray &value, const QVariantMap &options) override;
++    void WriteValue(QByteArray value, QVariantMap options) override;
 +
 +private:
 +    AppBridgeApi *m_api;
@@ -207,7 +207,7 @@ diff -Naur a/src/appbridgeservice.cpp b/src/appbridgeservice.cpp
 +{
 +}
 +
-+void AppBridgeRxChrc::WriteValue(const QByteArray &value, const QVariantMap &)
++void AppBridgeRxChrc::WriteValue(QByteArray value, QVariantMap)
 +{
 +    if (m_api) {
 +        m_api->handleIncomingBytes(value);
