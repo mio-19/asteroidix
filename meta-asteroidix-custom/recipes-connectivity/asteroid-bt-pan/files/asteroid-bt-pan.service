@@ -1,0 +1,13 @@
+[Unit]
+Description=AsteroidOS Bluetooth Internet Sharing (Auto-fallback Daemon)
+After=bluetooth.service connman.service
+Wants=bluetooth.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/asteroid-bt-pan daemon
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

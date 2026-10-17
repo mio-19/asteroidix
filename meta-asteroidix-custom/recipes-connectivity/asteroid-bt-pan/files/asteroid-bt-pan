@@ -1,0 +1,385 @@
+#!/usr/bin/env python3
+"""
+asteroid-bt-pan: Connect AsteroidOS watch to phone Bluetooth Internet Sharing (PAN/NAP)
+Supports:
+  - Automatic fallback daemon: connects to phone Bluetooth tethering whenever Wi-Fi
+    and cellular are unavailable, and disconnects when Wi-Fi/cellular returns to save battery.
+  - UI switch in Settings > Bluetooth: checks /org/asteroidos/settings/bluetooth-internet-sharing
+    to instantly honor user preference.
+  - Manual CLI commands: status, connect, disconnect.
+"""
+
+import sys
+import os
+import subprocess
+import time
+
+try:
+    import dbus
+except ImportError:
+    dbus = None
+
+NAP_UUID = "00001116-0000-1000-8000-00805f9b34fb"
+BLUEZ_BUS_NAME = "org.bluez"
+ADAPTER_IFACE = "org.bluez.Adapter1"
+DEVICE_IFACE = "org.bluez.Device1"
+NETWORK_IFACE = "org.bluez.Network1"
+PROPERTIES_IFACE = "org.freedesktop.DBus.Properties"
+
+
+def get_bluez_objects():
+    if not dbus:
+        return None, {}
+    bus = dbus.SystemBus()
+    om = dbus.Interface(bus.get_object(BLUEZ_BUS_NAME, "/"), "org.freedesktop.DBus.ObjectManager")
+    return bus, om.GetManagedObjects()
+
+
+def find_adapter(objects):
+    for path, ifaces in objects.items():
+        if ADAPTER_IFACE in ifaces:
+            return path, ifaces[ADAPTER_IFACE]
+    return None, None
+
+
+def get_paired_devices(objects):
+    devices = []
+    for path, ifaces in objects.items():
+        if DEVICE_IFACE in ifaces:
+            dev = ifaces[DEVICE_IFACE]
+            if dev.get("Paired", False):
+                devices.append((path, dev))
+    return devices
+
+
+def has_nap_support(dev_props):
+    uuids = dev_props.get("UUIDs", [])
+    return any(u.lower() == NAP_UUID.lower() for u in uuids)
+
+
+def is_feature_enabled():
+    """
+    Checks if Internet Sharing is enabled in Settings > Bluetooth.
+    """
+    # Check override files if any
+    if os.path.exists("/etc/asteroid-bt-pan.disabled") or os.path.exists("/home/ceres/.config/asteroid-bt-pan.disabled"):
+        return False
+    if os.path.exists("/etc/asteroid-bt-pan.enabled") or os.path.exists("/home/ceres/.config/asteroid-bt-pan.enabled"):
+        return True
+
+    # Check dconf value set by Settings UI
+    try:
+        cmd = ["runuser", "-u", "ceres", "--", "dconf", "read", "/org/asteroidos/settings/bluetooth-internet-sharing"]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
+        val = res.stdout.strip().lower()
+        if val in ("false", "0"):
+            return False
+        if val in ("true", "1"):
+            return True
+    except Exception:
+        pass
+
+    try:
+        env = os.environ.copy()
+        env["DCONF_USER_CONFIG_DIR"] = "/home/ceres/.config/dconf"
+        res = subprocess.run(["dconf", "read", "/org/asteroidos/settings/bluetooth-internet-sharing"], capture_output=True, text=True, env=env, timeout=2)
+        val = res.stdout.strip().lower()
+        if val in ("false", "0"):
+            return False
+        if val in ("true", "1"):
+            return True
+    except Exception:
+        pass
+
+    return True
+
+
+def get_ip_info():
+    ip_info = {"bnep0": None, "default_route": None, "dns": []}
+    try:
+        out = subprocess.check_output(["ip", "-4", "addr", "show", "dev", "bnep0"], stderr=subprocess.DEVNULL).decode()
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith("inet "):
+                ip_info["bnep0"] = line.split()[1]
+    except Exception:
+        pass
+
+    try:
+        out = subprocess.check_output(["ip", "route", "show", "default"], stderr=subprocess.DEVNULL).decode()
+        for line in out.splitlines():
+            if "default via" in line:
+                ip_info["default_route"] = line.strip()
+    except Exception:
+        pass
+
+    try:
+        if os.path.exists("/etc/resolv.conf"):
+            with open("/etc/resolv.conf", "r") as f:
+                for line in f:
+                    if line.startswith("nameserver"):
+                        ip_info["dns"].append(line.split()[1])
+    except Exception:
+        pass
+
+    return ip_info
+
+
+def test_ping(target="8.8.8.8"):
+    try:
+        res = subprocess.run(["ping", "-c", "2", "-W", "3", target], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
+def is_wifi_or_cellular_online(bus=None):
+    if bus:
+        try:
+            mgr = dbus.Interface(bus.get_object("net.connman", "/"), "net.connman.Manager")
+            services = mgr.GetServices()
+            for path, props in services:
+                stype = str(props.get("Type", ""))
+                state = str(props.get("State", ""))
+                if stype in ("wifi", "cellular", "ethernet", "gadget"):
+                    if state in ("online", "ready"):
+                        return True, f"{stype} ({state})"
+        except Exception:
+            pass
+
+    for iface in ("wlan0", "rndis0"):
+        oper_path = f"/sys/class/net/{iface}/operstate"
+        if os.path.exists(oper_path):
+            try:
+                with open(oper_path, "r") as f:
+                    if f.read().strip() == "up":
+                        out = subprocess.check_output(["ip", "-4", "addr", "show", "dev", iface], stderr=subprocess.DEVNULL).decode()
+                        if "inet " in out:
+                            return True, f"{iface} (up)"
+            except Exception:
+                pass
+
+    return False, None
+
+
+def connect_pan(bus, objects, target_mac=None, verbose=True):
+    adapter_path, adapter_props = find_adapter(objects)
+    if not adapter_path:
+        if verbose:
+            print("Error: No Bluetooth adapter found.")
+        return False
+
+    if not adapter_props.get("Powered", False):
+        if verbose:
+            print("Powering on Bluetooth adapter...")
+        adapter = dbus.Interface(bus.get_object(BLUEZ_BUS_NAME, adapter_path), PROPERTIES_IFACE)
+        adapter.Set(ADAPTER_IFACE, "Powered", dbus.Boolean(True))
+        time.sleep(1)
+        _, objects = get_bluez_objects()
+
+    paired = get_paired_devices(objects)
+    if not paired:
+        if verbose:
+            print("No paired devices found. Pair your phone first.")
+        return False
+
+    selected_path = None
+    selected_dev = None
+
+    if target_mac:
+        for path, dev in paired:
+            if dev.get("Address", "").upper() == target_mac.upper():
+                selected_path = path
+                selected_dev = dev
+                break
+        if not selected_path:
+            if verbose:
+                print(f"Paired device {target_mac} not found.")
+            return False
+    else:
+        for path, dev in paired:
+            if has_nap_support(dev):
+                selected_path = path
+                selected_dev = dev
+                break
+        if not selected_path:
+            selected_path, selected_dev = paired[0]
+
+    addr = selected_dev.get("Address", "Unknown")
+    name = selected_dev.get("Name", selected_dev.get("Alias", "Unknown"))
+    if verbose:
+        print(f"Connecting to Bluetooth NAP service on '{name}' [{addr}]...")
+
+    dev_obj = bus.get_object(BLUEZ_BUS_NAME, selected_path)
+    net_iface = dbus.Interface(dev_obj, NETWORK_IFACE)
+
+    ifname = "bnep0"
+    try:
+        ifname = str(net_iface.Connect("nap"))
+        if verbose:
+            print(f"Connected to NAP! Network interface: {ifname}")
+    except dbus.DBusException as e:
+        err_name = e.get_dbus_name()
+        if "AlreadyConnected" in err_name:
+            ifname = "bnep0"
+        else:
+            if verbose:
+                print(f"Failed to connect to NAP: {e.get_dbus_message()}")
+            return False
+
+    time.sleep(2)
+
+    net = get_ip_info()
+    if not net["bnep0"]:
+        if verbose:
+            print("Acquiring IP address via DHCP...")
+        subprocess.run(["ip", "link", "set", "dev", ifname, "up"], check=False)
+        subprocess.run(["udhcpc", "-i", ifname, "-n", "-q", "-t", "4"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(1)
+        net = get_ip_info()
+
+    if not net["dns"]:
+        try:
+            with open("/etc/resolv.conf", "a") as f:
+                f.write("nameserver 8.8.8.8\n")
+        except Exception:
+            pass
+
+    return bool(net["bnep0"])
+
+
+def disconnect_pan(bus, objects, target_mac=None, verbose=True):
+    paired = get_paired_devices(objects)
+    disconnected = 0
+    for path, dev in paired:
+        addr = dev.get("Address", "")
+        if target_mac and addr.upper() != target_mac.upper():
+            continue
+        try:
+            dev_obj = bus.get_object(BLUEZ_BUS_NAME, path)
+            net_iface = dbus.Interface(dev_obj, NETWORK_IFACE)
+            net_iface.Disconnect()
+            if verbose:
+                print(f"Disconnected NAP from {dev.get('Name', addr)} [{addr}].")
+            disconnected += 1
+        except Exception:
+            pass
+    return disconnected > 0
+
+
+def cmd_status():
+    print("=== AsteroidOS Bluetooth Internet Sharing (PAN) Status ===")
+    if not dbus:
+        print("Error: python3-dbus is not available.")
+        return 1
+
+    bus, objects = get_bluez_objects()
+    adapter_path, adapter_props = find_adapter(objects)
+
+    enabled = is_feature_enabled()
+    print(f"Settings > Bluetooth Internet Sharing: {'ENABLED' if enabled else 'DISABLED'}")
+
+    if not adapter_path:
+        print("Bluetooth Adapter: None found (bluebinder or bluetoothd running?)")
+    else:
+        powered = adapter_props.get("Powered", False)
+        addr = adapter_props.get("Address", "Unknown")
+        name = adapter_props.get("Name", "Unknown")
+        print(f"Bluetooth Adapter: {adapter_path} [{addr}] ({name})")
+        print(f"  Powered: {'Yes' if powered else 'No'}")
+
+    wifi_online, reason = is_wifi_or_cellular_online(bus)
+    print(f"Primary Network (Wi-Fi/Cellular): {'ACTIVE - ' + reason if wifi_online else 'INACTIVE'}")
+
+    paired = get_paired_devices(objects)
+    print(f"\nPaired Devices ({len(paired)}):")
+    if not paired:
+        print("  No paired devices found. Pair your phone via bluetoothctl or Settings.")
+    for path, dev in paired:
+        addr = dev.get("Address", "Unknown")
+        name = dev.get("Name", dev.get("Alias", "Unknown"))
+        connected = dev.get("Connected", False)
+        nap = has_nap_support(dev)
+        print(f"  - {name} [{addr}]")
+        print(f"      Connected: {'Yes' if connected else 'No'}")
+        print(f"      NAP Advertised: {'Yes' if nap else 'No (Enable Bluetooth Tethering on phone)'}")
+
+    print("\nNetwork Interface & Routing:")
+    net = get_ip_info()
+    print(f"  bnep0 IP: {net['bnep0'] or 'Not configured / interface down'}")
+    print(f"  Default Route: {net['default_route'] or 'None'}")
+    print(f"  DNS Servers: {', '.join(net['dns']) or 'None'}")
+
+    if net["bnep0"]:
+        print("\nInternet Connectivity Test:")
+        if test_ping("8.8.8.8"):
+            print("  Ping 8.8.8.8: OK (Internet active via phone!)")
+        else:
+            print("  Ping 8.8.8.8: FAILED (Check phone data connection)")
+    return 0
+
+
+def run_daemon():
+    print("Starting AsteroidOS Bluetooth Internet Sharing Auto-fallback Daemon...")
+    poll_interval = 10
+
+    while True:
+        try:
+            if not is_feature_enabled():
+                # User disabled this in Settings > Bluetooth
+                ip_info = get_ip_info()
+                if ip_info["bnep0"]:
+                    print("Internet sharing disabled in Settings. Disconnecting...")
+                    if dbus:
+                        bus, objects = get_bluez_objects()
+                        disconnect_pan(bus, objects, verbose=False)
+            elif dbus:
+                bus, objects = get_bluez_objects()
+                wifi_online, reason = is_wifi_or_cellular_online(bus)
+
+                if wifi_online:
+                    # Wi-Fi or cellular is active: disconnect bnep0 to save battery
+                    ip_info = get_ip_info()
+                    if ip_info["bnep0"]:
+                        print(f"Primary network is online ({reason}). Disconnecting Bluetooth PAN...")
+                        disconnect_pan(bus, objects, verbose=False)
+                else:
+                    # No Wi-Fi or cellular: automatically connect via Bluetooth PAN
+                    ip_info = get_ip_info()
+                    if not ip_info["bnep0"]:
+                        print("No Wi-Fi or cellular connection detected. Attempting Bluetooth PAN fallback...")
+                        success = connect_pan(bus, objects, verbose=False)
+                        if success:
+                            print("Bluetooth PAN fallback connected successfully.")
+        except Exception as e:
+            print(f"Daemon error: {e}")
+
+        time.sleep(poll_interval)
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "daemon"
+    mac = sys.argv[2] if len(sys.argv) > 2 else None
+
+    if cmd in ("-h", "--help", "help"):
+        print("Usage: asteroid-bt-pan [status|connect|disconnect|daemon]")
+        return 0
+
+    if cmd == "status":
+        return cmd_status()
+    elif cmd in ("connect", "auto"):
+        bus, objects = get_bluez_objects()
+        return 0 if connect_pan(bus, objects, target_mac=mac, verbose=True) else 1
+    elif cmd == "disconnect":
+        bus, objects = get_bluez_objects()
+        return 0 if disconnect_pan(bus, objects, target_mac=mac, verbose=True) else 1
+    elif cmd == "daemon":
+        run_daemon()
+        return 0
+    else:
+        print(f"Unknown command: {cmd}")
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

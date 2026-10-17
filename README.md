@@ -41,7 +41,7 @@ The Nix sandbox also writes `BB_NO_NETWORK = "1"`, `BB_SRCREV_POLICY = "cache"`,
 - Smartwatch Web Browser (`asteroid-browser`): a lightweight native Qt 6 rich-text web browser app designed for watch screens (32-bit ARM userspace across all watch targets including hoki, aurora, eos, solios, and seluna).
 - Tack Metronome (`asteroid-tack`): a precision metronome application for AsteroidOS ported from the Wear OS metronome [Tack Android](https://github.com/patzly/tack-android) by Patrick Zedler.
 - Ladybird Browser (`ladybird`): standalone modern web browser engine ported to AsteroidOS with 32-bit ARM userspace support (via LibGC cage scaling and AK 32-bit support).
-- Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), and Blood Oxygen (SpO2). See below.
+- Fossil Gen 6 (`hoki`) hardware enablement: speaker, microphone, Wi-Fi (WLAN), GPS (GNSS), Blood Oxygen (SpO2), and Bluetooth Internet Sharing (PAN/tethering). See below.
 - `rust-native` on nightly: place `libz` next to the snapshot compiler (`rust` 1.90).
 - Nix sandbox compatibility (across all builds):
   - `perl`: fall back to `cpp -dM` when the Errno header scan finds nothing
@@ -103,6 +103,13 @@ The `hoki-nightly-patched` image incorporates community hardware enablement for 
     - Application controller (`SPO2Controller`): executes an active 20-second optical pulse oximetry measurement cycle, computes optical AC/DC ratio-of-ratios $R = \frac{(AC/DC)_{\text{red}}}{(AC/DC)_{\text{ir}}}$ with median filtering against motion artifacts, applies the empirical calibration model $\text{SpO}_2 = 110 - 25 \times R$, integrates with `QHrmSensor` for real-time pulse rate and off-wrist contact detection, persists readings to `QSettings`, and provides WHO hypoxemia classification (Normal $\ge 95\%$, Low $90-94\%$, Critical $<90\%$).
     - D-Bus Integration: registers `org.asteroidos.spo2` on the session bus for external synchronization and watchface integration.
     - Native QML UI (`OxygenMeter.qml`, `main.qml`): circular progress arc gauge, real-time pulsating heartbeat animation, dynamic AsteroidOS color theming, and touch controls.
+
+- **Bluetooth Internet Sharing (PAN / Phone Tethering)**:
+  - Enables automatic Bluetooth Personal Area Network (PAN / BNEP) fallback internet sharing from paired Android or iOS phones to the watch.
+  - Automatic fallback daemon (`asteroid-bt-pan.service`): runs continuously in the background and automatically connects to the paired phone's Bluetooth tethering whenever Wi-Fi and cellular are unavailable/disconnected. When Wi-Fi or cellular reconnects, it automatically disconnects Bluetooth PAN to conserve watch and phone battery.
+  - Kernel enablement: adds `CONFIG_BT_BREDR=y`, `CONFIG_BT_BNEP=y` (with multicast & protocol filters), `CONFIG_BT_RFCOMM=y`, and `CONFIG_BT_HIDP=y` to `linux-hoki`, allowing the Linux kernel to create and drive `bnep0` network interfaces.
+  - BlueZ controller configuration: overrides AsteroidOS's default BLE-only controller mode (`ControllerMode = le`) with `ControllerMode = dual` and `DiscoverableTimeout = 180`, allowing simultaneous BLE background sync (`asteroid-btsyncd`) and Classic Bluetooth NAP/PAN profiles.
+  - Bundled packages: `asteroid-bt-pan` auto-daemon and CLI utility, `bluez5-testtools`, `bluez5-noinst-tools`, `python3-dbus`, and `connman-client`.
 
 ### Community applications
 
