@@ -1,0 +1,157 @@
+name: Build Hoki Image (Official Way)
+
+on:
+  workflow_dispatch:
+    inputs:
+      variant:
+        description: "AsteroidOS variant to build"
+        required: true
+        default: "nightly-patched"
+        type: choice
+        options:
+          - "nightly-patched"
+          - "nightly-official"
+      target:
+        description: "BitBake target recipe"
+        required: true
+        default: "asteroid-image"
+        type: string
+      create_release:
+        description: "Create a GitHub Release in addition to artifact upload"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build-hoki:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Free Disk Space
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost /opt/hostedtoolcache || true
+          sudo docker system prune -af || true
+          sudo apt-get clean || true
+          echo "Disk space after cleanup:"
+          df -h
+
+      - name: Enable unprivileged user namespaces
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          sudo sysctl -w kernel.unprivileged_userns_clone=1 || true
+
+      - name: Install official AsteroidOS build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential chrpath cpio diffstat gawk liblz4-tool python3 shared-mime-info texinfo wget zstd lz4 socat
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "bot@asteroidos.org"
+          git config --global user.name "AsteroidOS Builder"
+
+      - name: Export AsteroidOS source code via Nix
+        run: |
+          set -euo pipefail
+          variant="${{ inputs.variant || 'nightly-patched' }}"
+          echo "Building source tree derivation for ${variant}..."
+          nix build ".#source-${variant}" --out-link source-result
+          mkdir -p "$HOME/asteroid"
+          cp -rL source-result/. "$HOME/asteroid/"
+          chmod -R u+w "$HOME/asteroid/"
+          rm -f source-result
+          echo "Source checkout ready in $HOME/asteroid"
+          ls -la "$HOME/asteroid"
+
+      - name: Build AsteroidOS for Fossil Gen 6 (hoki)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$HOME/asteroid"
+
+          # Source prepare-build.sh as required by the official AsteroidOS documentation
+          source ./prepare-build.sh hoki
+
+          # Enable rm_work to conserve disk space on GitHub Actions runner
+          cat >> conf/local.conf <<'EOF'
+          INHERIT += "rm_work"
+          BB_NUMBER_THREADS = "4"
+          PARALLEL_MAKE = "-j 4"
+          EOF
+
+          target="${{ inputs.target || 'asteroid-image' }}"
+          echo "Starting BitBake build for target: ${target}"
+          bitbake "${target}"
+
+      - name: Prepare deploy artifacts
+        run: |
+          set -euo pipefail
+          variant="${{ inputs.variant || 'nightly-patched' }}"
+          deploy_dir="$HOME/asteroid/build/tmp/deploy/images/hoki"
+          artifact_dir="$GITHUB_WORKSPACE/deploy-hoki"
+          mkdir -p "$artifact_dir"
+
+          if [ ! -d "$deploy_dir" ]; then
+            echo "Error: deploy directory ${deploy_dir} does not exist!" >&2
+            exit 1
+          fi
+
+          echo "Listing deploy directory contents:"
+          ls -lh "$deploy_dir"
+
+          # Copy flashable images and boot artifacts, resolving symlinks
+          find "$deploy_dir" -maxdepth 1 -type f \
+            ! -name "*.testdata.json" \
+            ! -name "*.manifest" \
+            ! -name "*.qemu.config" \
+            ! -name "*.env" \
+            -exec cp -L {} "$artifact_dir/" \; || true
+
+          # If find filter didn't match anything, copy all files dereferenced
+          if [ -z "$(ls -A "$artifact_dir")" ]; then
+            echo "Copying all deploy files..."
+            cp -Lr "$deploy_dir"/* "$artifact_dir/" || true
+          fi
+
+          cd "$artifact_dir"
+          sha256sum * > SHA256SUMS || true
+
+          # Create a compressed bundle of the deploy images
+          tar -czf "$GITHUB_WORKSPACE/asteroidos-hoki-${variant}.tar.gz" -C "$artifact_dir" .
+          cp "$GITHUB_WORKSPACE/asteroidos-hoki-${variant}.tar.gz" "$artifact_dir/"
+
+          echo "Prepared artifacts:"
+          ls -lh "$artifact_dir"
+
+      - name: Upload Hoki Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: asteroid-image-hoki-${{ inputs.variant || 'nightly-patched' }}
+          path: deploy-hoki/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create GitHub Release
+        if: ${{ inputs.create_release }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          variant="${{ inputs.variant || 'nightly-patched' }}"
+          tag="hoki-${variant}-$(date +'%Y%m%d%H%M%S')"
+          gh release create "$tag" deploy-hoki/* \
+            --title "AsteroidOS Hoki (${variant}) - $(date +'%Y-%m-%d')" \
+            --notes "Automated official build of AsteroidOS image for Fossil Gen 6 (hoki) using Nix source checkout without Nix sandbox patches."

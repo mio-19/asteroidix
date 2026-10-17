@@ -20,6 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Enable unprivileged user namespaces for bubblewrap
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          sudo sysctl -w kernel.unprivileged_userns_clone=1 || true
+
       - uses: cachix/install-nix-action@v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
@@ -52,6 +57,7 @@ jobs:
             echo "No prefetch entries were cleared."
             exit 0
           fi
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup || true
           for pair in "${pairs[@]}"; do
             read -r machine variant <<<"$pair"

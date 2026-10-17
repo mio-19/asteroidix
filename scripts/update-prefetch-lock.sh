@@ -64,6 +64,11 @@ hash="$(sed -n 's/.*got:[[:space:]]*//p' "$log_file" | tail -n1)"
 
 if [ -z "${hash}" ]; then
   echo "Failed to detect prefetch hash from build output." >&2
+  if grep -q "bwrap: setting up uid map: Permission denied" "$log_file" 2>/dev/null; then
+    echo "Detected Bubblewrap permission error caused by restricted unprivileged user namespaces (common on Ubuntu 24.04+)." >&2
+    echo "To allow unprivileged user namespaces for bubblewrap, run:" >&2
+    echo "  sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0" >&2
+  fi
   exit 1
 fi
 

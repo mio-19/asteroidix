@@ -187,6 +187,20 @@ bitbake asteroid-image
 
 Aliases like `#nightly-patched-source` and `#src-nightly-patched` are also available.
 
+#### Automated GitHub Actions Image Builds
+
+A dedicated GitHub Actions workflow [`.github/workflows/build-hoki.yml`](./.github/workflows/build-hoki.yml) builds the Fossil Gen 6 (`hoki`) image using this official process and provides the output artifacts for download:
+- Uses Nix to export the clean source tree (`#source-nightly-patched` or `#source-nightly-official`) without Nix build patches.
+- Runs official `prepare-build.sh hoki` and `bitbake asteroid-image`.
+- Packages flashable images, kernel boot artifacts, and SHA256 checksums into a downloadable artifact (`asteroid-image-hoki`) and optional GitHub Release.
+- Can be triggered manually on-demand from the Actions tab (**Actions** -> **Build Hoki Image (Official Way)** -> **Run workflow**).
+
+> [!NOTE]
+> On Ubuntu 24.04+ hosts, AppArmor restricts unprivileged user namespaces by default (`kernel.apparmor_restrict_unprivileged_userns = 1`), which can cause tools like Bubblewrap (`bwrap`) to fail with `setting up uid map: Permission denied`. If you encounter this error during prefetching or local container/sandbox operations, enable unprivileged user namespaces:
+> ```bash
+> sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+> ```
+
 ### Emulator
 
 Run the AsteroidOS emulator with zero configuration (auto-downloads upstream nightly binaries if no local build is present, and wraps QEMU with Virgil3D acceleration):
