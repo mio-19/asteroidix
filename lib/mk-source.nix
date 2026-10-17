@@ -73,12 +73,12 @@ stdenvNoCC.mkDerivation {
         set -euo pipefail
 
         mkdir -p "$out"
-        cp --reflink=auto --no-preserve=ownership,mode -r ${baseAsteroid}/. "$out/"
+        cp --reflink=auto --no-preserve=ownership --no-dereference --preserve=links -r ${baseAsteroid}/. "$out/"
         chmod -R u+w "$out"
 
         ${lib.concatMapStringsSep "\n" (layer: ''
           mkdir -p "$out/${layer.relpath}"
-          cp --reflink=auto --no-preserve=ownership,mode -r ${layer.src}/. "$out/${layer.relpath}/"
+          cp --reflink=auto --no-preserve=ownership --no-dereference --preserve=links -r ${layer.src}/. "$out/${layer.relpath}/"
           chmod -R u+w "$out/${layer.relpath}"
         '') allLayers}
 
