@@ -2172,8 +2172,10 @@ index 344636239254..924a0155f129 100644
  }
  
  #ifdef CONFIG_DEBUG_VM
-@@ -1856,8 +1888,14 @@ static void prep_new_page(struct page *page, unsigned int order, gfp_t gfp_flags
+@@ -1856,8 +1888,16 @@ static void prep_new_page(struct page *page, unsigned int order, gfp_t gfp_flags
  {
++	int i;
++
  	post_alloc_hook(page, order, gfp_flags);
  
 -	if (!free_pages_prezeroed() && want_init_on_alloc(gfp_flags))
