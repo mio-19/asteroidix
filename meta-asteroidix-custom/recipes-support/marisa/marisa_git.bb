@@ -10,4 +10,8 @@ PV = "0.2.6+git"
 
 inherit cmake pkgconfig
 
-EXTRA_OECMAKE += "-DBUILD_SHARED_LIBS=ON"
+EXTRA_OECMAKE += "-DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF"
+
+do_configure:prepend() {
+    sed -i '/CONFIGURATIONS Release/d' ${S}/CMakeLists.txt
+}
