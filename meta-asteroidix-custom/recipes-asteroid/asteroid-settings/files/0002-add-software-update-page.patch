@@ -330,7 +330,7 @@ diff --git a/src/qml/main.qml b/src/qml/main.qml
 index e86d1a2..a7318bc 100644
 --- a/src/qml/main.qml
 +++ b/src/qml/main.qml
-@@ -52,6 +52,7 @@ Application {
+@@ -57,6 +57,7 @@ Application {
      Component { id: usbLayer;                   USBPage        { } }
      Component { id: powerLayer;                 PowerPage      { } }
      Component { id: aboutLayer;                 AboutPage      { } }
@@ -338,7 +338,7 @@ index e86d1a2..a7318bc 100644
  
      TiltToWake { id: tiltToWake }
  
-@@ -165,6 +166,14 @@ Application {
+@@ -179,6 +180,12 @@ Application {
                      iconName: "ios-power-outline"
                      onClicked: layerStack.push(powerLayer)
                  }
