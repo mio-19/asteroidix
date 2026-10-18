@@ -73,7 +73,7 @@ index 6109194..99c56dc 100644
 +
 +class Opencc {};
 +
-+Simplifier::Simplifier(const Ticket& ticket) : Filter(ticket) {}
++Simplifier::Simplifier(const Ticket& ticket) : Filter(ticket), TagMatching(ticket) {}
 +
 +void Simplifier::Initialize() {
 +  initialized_ = true;
